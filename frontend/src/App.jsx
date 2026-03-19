@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-const API = "http://localhost:5000";
+const API = import.meta.env.VITE_API_URL || "https://qs-assets-api.up.railway.app";
 
 const categories = ["all", "audio", "thumbnails", "logos", "branding", "misc"];
 
