@@ -21,11 +21,12 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 /* ---------------- CORS (VERY IMPORTANT) ---------------- */
+app.set("trust proxy", 1);
 app.use(
     cors({
         origin: [
-            "http://localhost:5173",
-            "https://assets.simplysnox.com"
+            "https://assets.simplysnox.com",
+            "http://localhost:5173"
         ],
         credentials: true
     })
@@ -37,14 +38,16 @@ app.use(express.json());
 app.use(
     session({
         name: "qs.sid",
-        secret: process.env.SESSION_SECRET || "qs-secret",
+        secret: process.env.SESSION_SECRET,
         resave: false,
         saveUninitialized: false,
+        proxy: true,
         cookie: {
             httpOnly: true,
-            secure: true,          // REQUIRED for HTTPS (Railway/Vercel)
-            sameSite: "none",      // REQUIRED for cross-domain cookies
-            maxAge: 1000 * 60 * 60 * 24 * 7 // 7 days
+            secure: true,
+            sameSite: "none",
+            domain: ".simplysnox.com",
+            maxAge: 1000 * 60 * 60 * 24 * 7
         }
     })
 );
@@ -189,7 +192,12 @@ app.get("/logout", (req, res) => {
     res.redirect("https://assets.simplysnox.com");
 });
 
+app.get("/me", (req, res) => {
+    if (!req.user) return res.json(null);
+    res.json(req.user);
+});
+
 /* ---------------- START ---------------- */
 app.listen(PORT, () => {
-    console.log(`🚀 API running on http://localhost:${PORT}`);
+    console.log(`🚀 API running on http://api.simplysnox.com:${PORT}`);
 });
