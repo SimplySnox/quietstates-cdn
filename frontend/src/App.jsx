@@ -13,31 +13,43 @@ export default function App() {
     const [loading, setLoading] = useState(true);
     const [uploading, setUploading] = useState(false);
     const [search, setSearch] = useState("");
-
-    const fetchFiles = async () => {
-        try {
-            const res = await fetch(`${API}/files`, {
-                credentials: "include"
-            });
-
-            if (res.status === 401) {
-                setAuthorized(false);
-                setLoading(false);
-                return;
-            }
-
-            const data = await res.json();
-            setFiles(data);
-            setAuthorized(true);
-        } catch {
-            setAuthorized(false);
-        } finally {
-            setLoading(false);
-        }
-    };
+    const [user, setUser] = useState(null);
 
     useEffect(() => {
-        fetchFiles();
+        const init = async () => {
+            try {
+                const res = await fetch(`${API}/me`, {
+                    credentials: "include"
+                });
+
+                const userData = await res.json();
+
+                if (!userData) {
+                    setAuthorized(false);
+                    setLoading(false);
+                    return;
+                }
+
+                setUser(userData);
+                setAuthorized(true);
+
+                // NOW fetch files AFTER auth
+                const filesRes = await fetch(`${API}/files`, {
+                    credentials: "include"
+                });
+
+                const filesData = await filesRes.json();
+                setFiles(filesData);
+
+            } catch (err) {
+                console.error(err);
+                setAuthorized(false);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        init();
     }, []);
 
     const upload = async (file) => {
@@ -158,8 +170,8 @@ export default function App() {
                             key={c}
                             onClick={() => setFilter(c)}
                             className={`px-4 py-1 rounded-full text-sm ${filter === c
-                                    ? "bg-indigo-600"
-                                    : "bg-zinc-800"
+                                ? "bg-indigo-600"
+                                : "bg-zinc-800"
                                 }`}
                         >
                             {c}
