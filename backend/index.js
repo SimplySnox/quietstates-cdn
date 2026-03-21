@@ -126,7 +126,7 @@ app.post("/upload", requireAuth, upload.single("file"), async (req, res) => {
         db.prepare(`INSERT INTO files (id,name,category,uploader,uploaderId,type,size,url,createdAt) VALUES (?,?,?,?,?,?,?,?,?)`)
             .run(Object.values(newFile));
 
-        const type = newFile.type || "";
+        const type = newFile.type || "unknown";
 
         const isImage = type.startsWith("image");
         const isVideo = type.startsWith("video");
@@ -170,6 +170,11 @@ app.post("/upload", requireAuth, upload.single("file"), async (req, res) => {
             color: 0x5865F2,
             fields: [
                 {
+                    name: "Type",
+                    value: `\`${type}\``,
+                    inline: true
+                },
+                {
                     name: "Category",
                     value: `\`${category}\``,
                     inline: true
@@ -192,20 +197,6 @@ app.post("/upload", requireAuth, upload.single("file"), async (req, res) => {
             }
         };
 
-        const components = [
-            {
-                type: 1,
-                components: [
-                    {
-                        type: 2,
-                        style: 5,
-                        label: "Open CDN",
-                        url: `${prefix}/${newFile.category}/${newFile.name}`
-                    }
-                ]
-            }
-        ];
-
         if (isImage) {
             embed.image = { url: newFile.url };
         }
@@ -221,8 +212,21 @@ app.post("/upload", requireAuth, upload.single("file"), async (req, res) => {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
+                    content: null,
                     embeds: [embed],
-                    components: components
+                    components: [
+                        {
+                            type: 1,
+                            components: [
+                                {
+                                    type: 2,
+                                    style: 5,
+                                    label: "Open CDN",
+                                    url: `https://cdn.simplysnox.com/${newFile.category}/${encodeURIComponent(newFile.name)}`
+                                }
+                            ]
+                        }
+                    ]
                 })
             });
         } catch (err) {
