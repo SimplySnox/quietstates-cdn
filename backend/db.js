@@ -4,11 +4,13 @@ import fs from "fs";
 const DB_PATH = "/data/database.sqlite";
 
 // Ensure /data exists
-if (!fs.existsSync("/data")) fs.mkdirSync("/data", { recursive: true });
+if (!fs.existsSync("/data")) {
+    fs.mkdirSync("/data", { recursive: true });
+}
 
 const db = new Database(DB_PATH);
 
-// Files table
+/* ---------------- FILES TABLE ---------------- */
 db.prepare(`
 CREATE TABLE IF NOT EXISTS files (
     id TEXT PRIMARY KEY,
@@ -23,13 +25,7 @@ CREATE TABLE IF NOT EXISTS files (
 )
 `).run();
 
-// Migration: add uploaderId if missing
-const columnsFiles = db.prepare("PRAGMA table_info(files)").all();
-if (!columnsFiles.some(c => c.name === "uploaderId")) {
-    db.prepare("ALTER TABLE files ADD COLUMN uploaderId TEXT").run();
-}
-
-// Users table for Discord login caching
+/* ---------------- USERS TABLE (FIX) ---------------- */
 db.prepare(`
 CREATE TABLE IF NOT EXISTS users (
     id TEXT PRIMARY KEY,
@@ -38,5 +34,12 @@ CREATE TABLE IF NOT EXISTS users (
     updatedAt INTEGER
 )
 `).run();
+
+/* ---------------- MIGRATIONS ---------------- */
+const columns = db.prepare("PRAGMA table_info(files)").all();
+
+if (!columns.some(c => c.name === "uploaderId")) {
+    db.prepare("ALTER TABLE files ADD COLUMN uploaderId TEXT").run();
+}
 
 export default db;

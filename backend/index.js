@@ -7,6 +7,8 @@ import session from "express-session";
 import fetch from "node-fetch";
 import { v4 as uuidv4 } from "uuid";
 import { PutObjectCommand, DeleteObjectCommand, ListObjectsV2Command } from "@aws-sdk/client-s3";
+import SQLiteStoreFactory from "better-sqlite3-session-store";
+import sqlite3 from "better-sqlite3";
 
 import passport from "./auth.js";
 import db from "./db.js";
@@ -31,23 +33,26 @@ app.use(cors({
 }));
 
 app.options("*", cors({ origin: allowedOrigins, credentials: true }));
-
 app.use(express.json());
-
-// Use filesystem-backed session store to avoid memory leaks
-import SQLiteStoreFactory from "better-sqlite3-session-store";
-import sqlite3 from "better-sqlite3";
 
 const SQLiteStore = SQLiteStoreFactory(session);
 const sessionDB = new sqlite3("/data/sessions.sqlite");
 
 app.use(session({
+    store: new SQLiteStore({
+        client: db
+    }),
     name: "qs.sid",
     secret: process.env.SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
-    store: new SQLiteStore({ client: sessionDB }),
-    cookie: { httpOnly: true, secure: true, sameSite: "none", domain: ".simplysnox.com" }
+    proxy: true,
+    cookie: {
+        httpOnly: true,
+        secure: true,
+        sameSite: "none",
+        domain: ".simplysnox.com"
+    }
 }));
 
 app.use(passport.initialize());
