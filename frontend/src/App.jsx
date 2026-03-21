@@ -68,40 +68,110 @@ export default function App() {
     };
 
     return (
-        <div className="min-h-screen bg-zinc-950 text-white p-6">
-            <h1 className="text-3xl mb-4">QS Assets</h1>
+        <div className="min-h-screen bg-zinc-950 text-white">
+            <div className="max-w-6xl mx-auto p-6">
 
-            <input type="file" onChange={e => setFile(e.target.files[0])} />
-            <button onClick={upload} className="ml-2 bg-indigo-600 px-4 py-2 rounded">
-                Upload
-            </button>
+                {/* HEADER */}
+                <div className="flex justify-between items-center mb-8">
+                    <h1 className="text-3xl font-semibold tracking-tight">
+                        QS Assets
+                    </h1>
 
-            {progress > 0 && (
-                <div className="w-full bg-zinc-800 h-2 mt-2">
-                    <div
-                        className="bg-indigo-500 h-2"
-                        style={{ width: `${progress}%` }}
-                    />
-                </div>
-            )}
-
-            <div className="grid grid-cols-3 gap-4 mt-6">
-                {files.map(f => (
-                    <div key={f.id} className="bg-zinc-900 p-3 rounded">
-                        {f.type.startsWith("image") && (
-                            <img src={f.url} className="h-32 w-full object-cover" />
+                    <div className="flex items-center gap-3">
+                        {user && (
+                            <div className="text-sm text-zinc-400">
+                                {user.username}
+                            </div>
                         )}
 
-                        <div className="text-sm mt-2">{f.name}</div>
+                        <a
+                            href={`${API}/logout`}
+                            className="text-sm px-3 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 transition"
+                        >
+                            Logout
+                        </a>
+                    </div>
+                </div>
+
+                {/* UPLOAD CARD */}
+                <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 mb-8 shadow-lg">
+                    <div className="flex flex-col md:flex-row gap-4 items-center">
+
+                        <input
+                            type="file"
+                            onChange={e => setFile(e.target.files[0])}
+                            className="text-sm"
+                        />
 
                         <button
-                            onClick={() => remove(f.id)}
-                            className="text-red-400 text-xs mt-2"
+                            onClick={upload}
+                            className="bg-indigo-600 hover:bg-indigo-500 transition px-5 py-2 rounded-xl font-medium shadow"
                         >
-                            Delete
+                            Upload
                         </button>
+
                     </div>
-                ))}
+
+                    {/* PROGRESS BAR */}
+                    {progress > 0 && (
+                        <div className="w-full bg-zinc-800 h-2 mt-4 rounded-full overflow-hidden">
+                            <div
+                                className="bg-indigo-500 h-2 transition-all"
+                                style={{ width: `${progress}%` }}
+                            />
+                        </div>
+                    )}
+                </div>
+
+                {/* FILE GRID */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+                    {files.map(f => (
+                        <div
+                            key={f.id}
+                            className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden hover:border-indigo-500 transition group"
+                        >
+                            {/* IMAGE */}
+                            {f.type.startsWith("image") && (
+                                <img
+                                    src={f.url}
+                                    className="h-40 w-full object-cover group-hover:scale-105 transition"
+                                />
+                            )}
+
+                            {/* CONTENT */}
+                            <div className="p-4">
+                                <div className="text-sm font-medium truncate">
+                                    {f.name}
+                                </div>
+
+                                <div className="flex justify-between items-center mt-3">
+                                    <a
+                                        href={f.url}
+                                        target="_blank"
+                                        className="text-xs text-indigo-400 hover:underline"
+                                    >
+                                        Open
+                                    </a>
+
+                                    <button
+                                        onClick={() => remove(f.id)}
+                                        className="text-xs text-red-400 hover:text-red-300"
+                                    >
+                                        Delete
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+
+                {/* EMPTY STATE */}
+                {files.length === 0 && (
+                    <div className="text-center text-zinc-500 mt-16">
+                        No files uploaded yet
+                    </div>
+                )}
+
             </div>
         </div>
     );
