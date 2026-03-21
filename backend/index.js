@@ -10,9 +10,10 @@ import { PutObjectCommand, DeleteObjectCommand, ListObjectsV2Command } from "@aw
 import SQLiteStoreFactory from "better-sqlite3-session-store";
 import sqlite3 from "better-sqlite3";
 
-import passport from "./auth.js";
-import db from "./db.js";
-import { r2 } from "./r2.js";
+import { discordNotify } from "./core/bot.js";
+import passport from "./helpers/auth.js";
+import db from "./database/db.js";
+import { r2 } from "./database/r2.js";
 
 dotenv.config();
 const app = express();
