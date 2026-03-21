@@ -125,16 +125,108 @@ app.post("/upload", requireAuth, upload.single("file"), async (req, res) => {
         db.prepare(`INSERT INTO files (id,name,category,uploader,uploaderId,type,size,url,createdAt) VALUES (?,?,?,?,?,?,?,?,?)`)
             .run(Object.values(newFile));
 
-        if (process.env.DISCORD_WEBHOOK) {
-            await fetch(process.env.DISCORD_WEBHOOK, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    content:
-                        `📁 **New Upload**\n**File**: \`${newFile.name}\`\n**Category**: \`${category}\`\n**By**: \`${newFile.uploader}\`\n\n${url}`
-                })
-            });
+        const type = newFile.type || "";
+
+        const isImage = type.startsWith("image");
+        const isVideo = type.startsWith("video");
+        const isAudio = type.startsWith("audio");
+
+        const isCode =
+            type.includes("javascript") ||
+            type.includes("json") ||
+            type.includes("css") ||
+            type.includes("html");
+
+        const isArchive =
+            type.includes("zip") ||
+            type.includes("tar") ||
+            type.includes("rar");
+
+        let icon = "📁";
+        let label = "File Uploaded";
+
+        if (isImage) {
+            icon = "🖼️";
+            label = "Image Uploaded";
+        } else if (isVideo) {
+            icon = "🎬";
+            label = "Video Uploaded";
+        } else if (isAudio) {
+            icon = "🎵";
+            label = "Audio Uploaded";
+        } else if (isCode) {
+            icon = "💻";
+            label = "Code File Uploaded";
+        } else if (isArchive) {
+            icon = "📦";
+            label = "Archive Uploaded";
         }
+
+        const embed = {
+            title: `${icon} ${label}`,
+            description: `**${newFile.name}**`,
+            color: 0x5865F2,
+            fields: [
+                {
+                    name: "Category",
+                    value: category,
+                    inline: true
+                },
+                {
+                    name: "Uploader",
+                    value: newFile.uploader,
+                    inline: true
+                },
+                {
+                    name: "Size",
+                    value: `${(newFile.size / 1024).toFixed(2)} KB`,
+                    inline: true
+                }
+            ],
+            url: newFile.url,
+            timestamp: new Date().toISOString(),
+            footer: {
+                text: "QS CDN"
+            }
+        };
+
+        const components = [
+            {
+                type: 1,
+                components: [
+                    {
+                        type: 2,
+                        style: 5,
+                        label: 'Link to CDN',
+                        url: newFile.url
+                    }
+                ]
+            }
+        ];
+
+        if (isImage) {
+            embed.image = { url: newFile.url };
+        }
+
+        if (isVideo) {
+            embed.thumbnail = {
+                url: "https://cdn-icons-png.flaticon.com/512/727/727245.png"
+            };
+        }
+
+        if (isAudio) {
+            embed.description += "\n\n🎧 Audio file";
+        }
+
+        if (isCode) {
+            embed.description += "\n\n```code file```";
+        }
+
+        await fetch(process.env.DISCORD_WEBHOOK, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ embeds: [embed], components })
+        });
 
         res.json(newFile);
 
