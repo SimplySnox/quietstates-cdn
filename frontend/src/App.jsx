@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 
 const API = "https://api.simplysnox.com";
-const categories = ["all", "audio", "thumbnails", "logos", "branding", "misc"];
+const categories = ["all", "image", "video", "audio", "thumbnails", "logos", "branding", "misc"];
 
 export default function App() {
     const [files, setFiles] = useState([]);
