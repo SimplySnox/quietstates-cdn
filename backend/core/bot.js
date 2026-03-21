@@ -4,15 +4,25 @@ import {
     EmbedBuilder,
     ActionRowBuilder,
     ButtonBuilder,
-    ButtonStyle
+    ButtonStyle,
+    ActivityType,
+    PresenceUpdateStatus,
 } from "discord.js";
 
 const client = new Client({
     intents: [GatewayIntentBits.Guilds]
 });
 
-client.once("ready", () => {
+client.once("clientReady", () => {
     console.log(`🤖 Bot logged in as ${client.user.tag}`);
+
+    client.user.setPresence({
+        activities: [{
+            name: 'cdn.simplysnox.com',
+            type: ActivityType.Watching
+        }],
+        status: PresenceUpdateStatus.Idle,
+    });
 });
 
 client.login(process.env.DISCORD_CLIENT_TOKEN);
