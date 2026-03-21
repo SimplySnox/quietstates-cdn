@@ -5,6 +5,12 @@
         "dev": "concurrently \"npm run dev --prefix backend\" \"npm run dev --prefix frontend\""
     },
     "devDependencies": {
-        "concurrently": "^8.2.2"
+        "autoprefixer": "^10.4.27",
+        "concurrently": "^8.2.2",
+        "postcss": "^8.5.8",
+        "tailwindcss": "^3.4.13"
+    },
+    "dependencies": {
+        "discord.js": "^14.25.1"
     }
 }
