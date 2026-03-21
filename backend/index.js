@@ -16,8 +16,23 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+const allowedOrigins = [
+    "https://assets.simplysnox.com",
+    "http://localhost:5173"
+];
+
 app.set("trust proxy", 1);
-app.use(cors({ origin: ["https://assets.simplysnox.com", "http://localhost:5173"], credentials: true }));
+app.use(cors({
+    origin: allowedOrigins,
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"]
+}));
+
+app.options("*", cors({
+    origin: allowedOrigins,
+    credentials: true
+}));
 app.use(express.json());
 
 app.use(session({
