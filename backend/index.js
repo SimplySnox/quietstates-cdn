@@ -16,6 +16,7 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Allowed CORS origins
 const allowedOrigins = [
     "https://assets.simplysnox.com",
     "http://localhost:5173"
@@ -29,18 +30,23 @@ app.use(cors({
     allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"]
 }));
 
-app.options("*", cors({
-    origin: allowedOrigins,
-    credentials: true
-}));
+app.options("*", cors({ origin: allowedOrigins, credentials: true }));
+
 app.use(express.json());
+
+// Use filesystem-backed session store to avoid memory leaks
+import SQLiteStoreFactory from "better-sqlite3-session-store";
+import sqlite3 from "better-sqlite3";
+
+const SQLiteStore = SQLiteStoreFactory(session);
+const sessionDB = new sqlite3("/data/sessions.sqlite");
 
 app.use(session({
     name: "qs.sid",
     secret: process.env.SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
-    proxy: true,
+    store: new SQLiteStore({ client: sessionDB }),
     cookie: { httpOnly: true, secure: true, sameSite: "none", domain: ".simplysnox.com" }
 }));
 
@@ -48,6 +54,7 @@ app.use(passport.initialize());
 app.use(passport.session());
 
 const requireAuth = (req, res, next) => req.isAuthenticated() ? next() : res.status(401).json({ error: "Unauthorized" });
+
 const upload = multer({ dest: "uploads/" });
 
 /* ---------------- R2 SYNC ---------------- */
@@ -56,7 +63,8 @@ const syncR2 = async () => {
     const objects = list.Contents || [];
 
     for (const obj of objects) {
-        const exists = db.prepare("SELECT * FROM files WHERE url = ?").get(`${process.env.R2_PUBLIC_URL}/${obj.Key}`);
+        const url = `${process.env.R2_PUBLIC_URL}/${obj.Key}`;
+        const exists = db.prepare("SELECT 1 FROM files WHERE url = ?").get(url);
         if (!exists) {
             const newFile = {
                 id: uuidv4(),
@@ -66,7 +74,7 @@ const syncR2 = async () => {
                 uploaderId: null,
                 type: "application/octet-stream",
                 size: obj.Size,
-                url: `${process.env.R2_PUBLIC_URL}/${obj.Key}`,
+                url,
                 createdAt: new Date().toISOString()
             };
             db.prepare(`INSERT INTO files (id,name,category,uploader,uploaderId,type,size,url,createdAt) VALUES (?,?,?,?,?,?,?,?,?)`)
@@ -93,6 +101,7 @@ app.post("/upload", requireAuth, upload.single("file"), async (req, res) => {
             Body: buffer,
             ContentType: file.mimetype
         }));
+
         fs.unlinkSync(file.path);
 
         const url = `${process.env.R2_PUBLIC_URL}/${key}`;
@@ -117,19 +126,15 @@ app.post("/upload", requireAuth, upload.single("file"), async (req, res) => {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     content:
-                        `📁 **New Upload**
-**File**: \`${newFile.name}\`
-**Category**: \`${category}\`
-**By**: \`${newFile.uploader}\`
-
-${url}`
+                        `📁 **New Upload**\n**File**: \`${newFile.name}\`\n**Category**: \`${category}\`\n**By**: \`${newFile.uploader}\`\n\n${url}`
                 })
             });
         }
 
         res.json(newFile);
+
     } catch (err) {
-        console.error(err);
+        console.error("UPLOAD ERROR:", err);
         res.status(500).json({ error: err.message });
     }
 });
@@ -137,7 +142,7 @@ ${url}`
 /* ---------------- DELETE ---------------- */
 app.delete("/files/:id", requireAuth, async (req, res) => {
     try {
-        const file = db.prepare("SELECT * FROM files WHERE id = ?").get(req.params.id);
+        const file = db.prepare("SELECT * FROM files WHERE id=?").get(req.params.id);
         if (!file) return res.status(404).json({ error: "Not found" });
 
         const isOwner = file.uploaderId === req.user.id;
@@ -146,11 +151,12 @@ app.delete("/files/:id", requireAuth, async (req, res) => {
 
         const key = file.url.replace(`${process.env.R2_PUBLIC_URL}/`, "");
         await r2.send(new DeleteObjectCommand({ Bucket: process.env.R2_BUCKET, Key: key }));
-        db.prepare("DELETE FROM files WHERE id = ?").run(req.params.id);
+        db.prepare("DELETE FROM files WHERE id=?").run(req.params.id);
 
         res.json({ success: true });
+
     } catch (err) {
-        console.error(err);
+        console.error("DELETE ERROR:", err);
         res.status(500).json({ error: err.message });
     }
 });

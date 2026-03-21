@@ -8,7 +8,7 @@ if (!fs.existsSync("/data")) fs.mkdirSync("/data", { recursive: true });
 
 const db = new Database(DB_PATH);
 
-// Create table if missing
+// Files table
 db.prepare(`
 CREATE TABLE IF NOT EXISTS files (
     id TEXT PRIMARY KEY,
@@ -24,9 +24,19 @@ CREATE TABLE IF NOT EXISTS files (
 `).run();
 
 // Migration: add uploaderId if missing
-const columns = db.prepare("PRAGMA table_info(files)").all();
-if (!columns.some(c => c.name === "uploaderId")) {
+const columnsFiles = db.prepare("PRAGMA table_info(files)").all();
+if (!columnsFiles.some(c => c.name === "uploaderId")) {
     db.prepare("ALTER TABLE files ADD COLUMN uploaderId TEXT").run();
 }
+
+// Users table for Discord login caching
+db.prepare(`
+CREATE TABLE IF NOT EXISTS users (
+    id TEXT PRIMARY KEY,
+    username TEXT,
+    roles TEXT,
+    updatedAt INTEGER
+)
+`).run();
 
 export default db;
