@@ -166,14 +166,9 @@ app.post("/upload", requireAuth, upload.single("file"), async (req, res) => {
 
         const embed = {
             title: `${icon} ${label}`,
-            description: `> **${newFile.name}**`,
+            description: `> **${newFile.name}**\n\n🔗 [Open via CDN](https://cdn.simplysnox.com/${newFile.category}/${encodeURIComponent(newFile.name)})`,
             color: 0x5865F2,
             fields: [
-                {
-                    name: "Type",
-                    value: `\`${type}\``,
-                    inline: true
-                },
                 {
                     name: "Category",
                     value: `\`${category}\``,
@@ -213,20 +208,7 @@ app.post("/upload", requireAuth, upload.single("file"), async (req, res) => {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     content: null,
-                    embeds: [embed],
-                    components: [
-                        {
-                            type: 1,
-                            components: [
-                                {
-                                    type: 2,
-                                    style: 5,
-                                    label: "Open CDN",
-                                    url: `https://cdn.simplysnox.com/${newFile.category}/${encodeURIComponent(newFile.name)}`
-                                }
-                            ]
-                        }
-                    ]
+                    embeds: [embed]
                 })
             });
         } catch (err) {
