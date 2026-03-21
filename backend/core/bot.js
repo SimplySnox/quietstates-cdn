@@ -17,11 +17,6 @@ client.once("ready", () => {
 
 client.login(process.env.DISCORD_CLIENT_TOKEN);
 
-if (!client.isReady()) {
-    console.log("Bot not ready yet");
-    return;
-}
-
 export const discordNotify = async (file) => {
     try {
         const channel = await client.channels.fetch(process.env.DISCORD_CHANNEL_ID);
