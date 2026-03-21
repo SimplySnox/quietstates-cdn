@@ -1,4 +1,3 @@
-// imports
 import express from "express";
 import multer from "multer";
 import cors from "cors";
@@ -6,65 +5,50 @@ import dotenv from "dotenv";
 import { v4 as uuidv4 } from "uuid";
 import fs from "fs";
 import path from "path";
-import { PutObjectCommand } from "@aws-sdk/client-s3";
 import session from "express-session";
-import passport from "./auth.js";
+import { PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 
+import passport from "./auth.js";
 import db from "./db.js";
 import { r2 } from "./r2.js";
 
-// env
 dotenv.config();
 
-// app
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-/* ---------------- CORS (VERY IMPORTANT) ---------------- */
 app.set("trust proxy", 1);
-app.use(
-    cors({
-        origin: [
-            "https://assets.simplysnox.com",
-            "http://localhost:5173"
-        ],
-        credentials: true
-    })
-);
+
+app.use(cors({
+    origin: ["https://assets.simplysnox.com", "http://localhost:5173"],
+    credentials: true
+}));
 
 app.use(express.json());
 
-/* ---------------- SESSION (FIXED FOR PRODUCTION) ---------------- */
-app.use(
-    session({
-        name: "qs.sid",
-        secret: process.env.SESSION_SECRET,
-        resave: false,
-        saveUninitialized: false,
-        proxy: true,
-        cookie: {
-            httpOnly: true,
-            secure: true,
-            sameSite: "none",
-            domain: ".simplysnox.com",
-            maxAge: 1000 * 60 * 60 * 24 * 7
-        }
-    })
-);
+app.use(session({
+    name: "qs.sid",
+    secret: process.env.SESSION_SECRET,
+    resave: false,
+    saveUninitialized: false,
+    proxy: true,
+    cookie: {
+        httpOnly: true,
+        secure: true,
+        sameSite: "none",
+        domain: ".simplysnox.com"
+    }
+}));
 
 app.use(passport.initialize());
 app.use(passport.session());
 
-/* ---------------- HELPERS ---------------- */
 const requireAuth = (req, res, next) => {
     if (req.isAuthenticated()) return next();
     return res.status(401).json({ error: "Unauthorized" });
 };
 
-// temp upload folder
-const upload = multer({
-    dest: path.resolve("uploads")
-});
+const upload = multer({ dest: "uploads/" });
 
 /* ---------------- UPLOAD ---------------- */
 app.post("/upload", requireAuth, upload.single("file"), async (req, res) => {
@@ -72,47 +56,39 @@ app.post("/upload", requireAuth, upload.single("file"), async (req, res) => {
         const file = req.file;
         const { category = "misc" } = req.body;
 
-        const uploader = req.user?.username || "unknown";
-        const uploaderId = req.user?.id || null;
+        if (!file) return res.status(400).json({ error: "No file" });
 
-        if (!file) {
-            return res.status(400).json({ error: "No file uploaded" });
-        }
-
-        const fileBuffer = fs.readFileSync(file.path);
-
+        const buffer = fs.readFileSync(file.path);
         const safeName = file.originalname.replace(/\s+/g, "-");
         const key = `${category}/${Date.now()}-${safeName}`;
 
-        await r2.send(
-            new PutObjectCommand({
-                Bucket: process.env.R2_BUCKET,
-                Key: key,
-                Body: fileBuffer,
-                ContentType: file.mimetype
-            })
-        );
+        await r2.send(new PutObjectCommand({
+            Bucket: process.env.R2_BUCKET,
+            Key: key,
+            Body: buffer,
+            ContentType: file.mimetype
+        }));
 
         fs.unlinkSync(file.path);
 
-        const publicUrl = `${process.env.R2_PUBLIC_URL}/${key}`;
+        const url = `${process.env.R2_PUBLIC_URL}/${key}`;
 
         const newFile = {
             id: uuidv4(),
             name: file.originalname,
             category,
-            uploader,
-            uploaderId,
+            uploader: req.user.username,
+            uploaderId: req.user.id,
             type: file.mimetype,
             size: file.size,
-            url: publicUrl,
+            url,
             createdAt: new Date().toISOString()
         };
 
         db.prepare(`
-            INSERT INTO files 
-            (id, name, category, uploader, uploaderId, type, size, url, createdAt)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO files 
+        (id, name, category, uploader, uploaderId, type, size, url, createdAt)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         `).run(
             newFile.id,
             newFile.name,
@@ -125,65 +101,59 @@ app.post("/upload", requireAuth, upload.single("file"), async (req, res) => {
             newFile.createdAt
         );
 
-        // webhook
-        if (process.env.DISCORD_WEBHOOK) {
-            await fetch(process.env.DISCORD_WEBHOOK, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    content:
-                        `📁 **New Upload**\n` +
-                        `**File**: \`${newFile.name}\`\n` +
-                        `**Category**: \`${category}\`\n` +
-                        `**By**: \`${uploader}\`\n\n` +
-                        `${publicUrl}`
-                })
-            });
+        res.json(newFile);
+
+    } catch (err) {
+        console.error("UPLOAD ERROR:", err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+/* ---------------- DELETE ---------------- */
+app.delete("/files/:id", requireAuth, async (req, res) => {
+    try {
+        const file = db
+            .prepare("SELECT * FROM files WHERE id = ?")
+            .get(req.params.id);
+
+        if (!file) return res.status(404).json({ error: "Not found" });
+
+        const isOwner = file.uploaderId === req.user.id;
+        const hasRole = req.user.roles?.includes("926222761095991306");
+
+        if (!isOwner && !hasRole) {
+            return res.status(403).json({ error: "Forbidden" });
         }
 
-        res.json(newFile);
+        const key = file.url.replace(process.env.R2_PUBLIC_URL + "/", "");
+
+        await r2.send(new DeleteObjectCommand({
+            Bucket: process.env.R2_BUCKET,
+            Key: key
+        }));
+
+        db.prepare("DELETE FROM files WHERE id = ?").run(req.params.id);
+
+        res.json({ success: true });
+
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: "Upload failed" });
+        console.error("DELETE ERROR:", err);
+        res.status(500).json({ error: err.message });
     }
 });
 
 /* ---------------- FILES ---------------- */
 app.get("/files", requireAuth, (req, res) => {
-    try {
-        const files = db
-            .prepare("SELECT * FROM files ORDER BY createdAt DESC")
-            .all();
-
-        res.json(files);
-    } catch {
-        res.status(500).json({ error: "Failed to fetch files" });
-    }
-});
-
-app.get("/files/:category", requireAuth, (req, res) => {
-    try {
-        const files = db
-            .prepare("SELECT * FROM files WHERE category = ? ORDER BY createdAt DESC")
-            .all(req.params.category);
-
-        res.json(files);
-    } catch {
-        res.status(500).json({ error: "Failed to fetch category" });
-    }
+    const files = db.prepare("SELECT * FROM files ORDER BY createdAt DESC").all();
+    res.json(files);
 });
 
 /* ---------------- AUTH ---------------- */
 app.get("/auth/discord", passport.authenticate("discord"));
 
-app.get(
-    "/auth/discord/callback",
-    passport.authenticate("discord", {
-        failureRedirect: "/unauthorized"
-    }),
-    (req, res) => {
-        res.redirect("https://assets.simplysnox.com");
-    }
+app.get("/auth/discord/callback",
+    passport.authenticate("discord", { failureRedirect: "/unauthorized" }),
+    (req, res) => res.redirect("https://assets.simplysnox.com")
 );
 
 app.get("/logout", (req, res) => {
@@ -193,11 +163,9 @@ app.get("/logout", (req, res) => {
 });
 
 app.get("/me", (req, res) => {
-    if (!req.user) return res.json(null);
-    res.json(req.user);
+    res.json(req.user || null);
 });
 
-/* ---------------- START ---------------- */
 app.listen(PORT, () => {
-    console.log(`🚀 API running on http://api.simplysnox.com:${PORT}`);
+    console.log(`🚀 API running on ${PORT}`);
 });
