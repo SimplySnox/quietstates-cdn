@@ -110,7 +110,7 @@ app.post("/upload", requireAuth, upload.single("file"), async (req, res) => {
         fs.unlinkSync(file.path);
 
         const url = `${process.env.R2_PUBLIC_URL}/${key}`;
-        const newFile = {
+        let newFile = {
             id: uuidv4(),
             name: fileName,
             category,
@@ -148,6 +148,7 @@ app.post("/upload", requireAuth, upload.single("file"), async (req, res) => {
         if (isImage) {
             icon = "🖼️";
             label = "Image Uploaded";
+            category = "image";
         } else if (isVideo) {
             icon = "🎬";
             label = "Video Uploaded";
@@ -196,8 +197,8 @@ app.post("/upload", requireAuth, upload.single("file"), async (req, res) => {
                 components: [
                     {
                         type: 2,
+                        label: "Link to CDN",
                         style: 5,
-                        label: 'Link to CDN',
                         url: newFile.url
                     }
                 ]
@@ -212,14 +213,6 @@ app.post("/upload", requireAuth, upload.single("file"), async (req, res) => {
             embed.thumbnail = {
                 url: "https://cdn-icons-png.flaticon.com/512/727/727245.png"
             };
-        }
-
-        if (isAudio) {
-            embed.description += "\n\n🎧 Audio file";
-        }
-
-        if (isCode) {
-            embed.description += "\n\n```code file```";
         }
 
         await fetch(process.env.DISCORD_WEBHOOK, {
