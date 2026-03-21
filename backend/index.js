@@ -126,7 +126,7 @@ app.post("/upload", requireAuth, upload.single("file"), async (req, res) => {
         db.prepare(`INSERT INTO files (id,name,category,uploader,uploaderId,type,size,url,createdAt) VALUES (?,?,?,?,?,?,?,?,?)`)
             .run(Object.values(newFile));
 
-        const type = newFile.type || "unknown";
+        const type = newFile.type || "";
 
         const isImage = type.startsWith("image");
         const isVideo = type.startsWith("video");
@@ -164,58 +164,73 @@ app.post("/upload", requireAuth, upload.single("file"), async (req, res) => {
             label = "Archive Uploaded";
         }
 
-        const embed = {
-            title: `${icon} ${label}`,
-            description: `> **${newFile.name}**\n\n🔗 [Open via CDN](https://cdn.simplysnox.com/${newFile.category}/${encodeURIComponent(newFile.name)})`,
-            color: 0x5865F2,
-            fields: [
-                {
-                    name: "Category",
-                    value: `\`${category}\``,
-                    inline: true
-                },
-                {
-                    name: "Uploader",
-                    value: `\`${newFile.uploader}\``,
-                    inline: true
-                },
-                {
-                    name: "Size",
-                    value: `\`${(newFile.size / 1024).toFixed(2)} KB\``,
-                    inline: true
-                }
-            ],
-            url: newFile.url,
-            timestamp: new Date().toISOString(),
-            footer: {
-                text: "QS CDN"
-            }
-        };
+        // const embed = {
+        //     title: `${icon} ${label}`,
+        //     description: `> **${newFile.name}**`,
+        //     color: 0x5865F2,
+        //     fields: [
+        //         {
+        //             name: "Category",
+        //             value: `\`${category}\``,
+        //             inline: true
+        //         },
+        //         {
+        //             name: "Uploader",
+        //             value: `\`${newFile.uploader}\``,
+        //             inline: true
+        //         },
+        //         {
+        //             name: "Size",
+        //             value: `\`${(newFile.size / 1024).toFixed(2)} KB\``,
+        //             inline: true
+        //         }
+        //     ],
+        //     url: newFile.url,
+        //     timestamp: new Date().toISOString(),
+        //     footer: {
+        //         text: "QS CDN"
+        //     }
+        // };
 
-        if (isImage) {
-            embed.image = { url: newFile.url };
-        }
+        // const components = [
+        //     {
+        //         type: 1,
+        //         components: [
+        //             {
+        //                 type: 2,
+        //                 style: 5,
+        //                 label: "Open CDN",
+        //                 url: `${prefix}/${newFile.category}/${newFile.name}`
+        //             }
+        //         ]
+        //     }
+        // ];
 
-        if (isVideo) {
-            embed.thumbnail = {
-                url: "https://cdn-icons-png.flaticon.com/512/727/727245.png"
-            };
-        }
+        // if (isImage) {
+        //     embed.image = { url: newFile.url };
+        // }
 
-        try {
-            await fetch(process.env.DISCORD_WEBHOOK, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    content: null,
-                    embeds: [embed]
-                })
-            });
-        } catch (err) {
-            console.error("Webhook failed:", err);
-        }
+        // if (isVideo) {
+        //     embed.thumbnail = {
+        //         url: "https://cdn-icons-png.flaticon.com/512/727/727245.png"
+        //     };
+        // }
+
+        // try {
+        //     await fetch(process.env.DISCORD_WEBHOOK, {
+        //         method: "POST",
+        //         headers: { "Content-Type": "application/json" },
+        //         body: JSON.stringify({
+        //             embeds: [embed],
+        //             components: components
+        //         })
+        //     });
+        // } catch (err) {
+        //     console.error("Webhook failed:", err);
+        // }
 
         res.json(newFile);
+        await discordNotify(newFile);
 
     } catch (err) {
         console.error("UPLOAD ERROR:", err);
