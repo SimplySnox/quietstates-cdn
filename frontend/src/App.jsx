@@ -1,226 +1,107 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 
-const API = import.meta.env.VITE_API_URL || "https://api.simplysnox.com";
-
-const categories = ["all", "audio", "thumbnails", "logos", "branding", "misc"];
+const API = "https://api.simplysnox.com";
 
 export default function App() {
     const [files, setFiles] = useState([]);
-    const [selectedFile, setSelectedFile] = useState(null);
-    const [category, setCategory] = useState("misc");
-    const [filter, setFilter] = useState("all");
-    const [authorized, setAuthorized] = useState(null);
-    const [loading, setLoading] = useState(true);
-    const [uploading, setUploading] = useState(false);
-    const [search, setSearch] = useState("");
+    const [file, setFile] = useState(null);
+    const [progress, setProgress] = useState(0);
     const [user, setUser] = useState(null);
 
     useEffect(() => {
         const init = async () => {
-            try {
-                const res = await fetch(`${API}/me`, {
-                    credentials: "include"
-                });
+            const me = await fetch(`${API}/me`, { credentials: "include" });
+            const user = await me.json();
 
-                const userData = await res.json();
-
-                if (!userData) {
-                    setAuthorized(false);
-                    setLoading(false);
-                    return;
-                }
-
-                setUser(userData);
-                setAuthorized(true);
-
-                // NOW fetch files AFTER auth
-                const filesRes = await fetch(`${API}/files`, {
-                    credentials: "include"
-                });
-
-                const filesData = await filesRes.json();
-                setFiles(filesData);
-
-            } catch (err) {
-                console.error(err);
-                setAuthorized(false);
-            } finally {
-                setLoading(false);
+            if (!user) {
+                window.location.href = `${API}/auth/discord`;
+                return;
             }
+
+            setUser(user);
+
+            const res = await fetch(`${API}/files`, {
+                credentials: "include"
+            });
+
+            setFiles(await res.json());
         };
 
         init();
     }, []);
 
-    const upload = async (file) => {
+    const upload = () => {
         if (!file) return;
-
-        setUploading(true);
 
         const formData = new FormData();
         formData.append("file", file);
-        formData.append("category", category);
+        formData.append("category", "misc");
 
-        await fetch(`${API}/upload`, {
-            method: "POST",
-            body: formData,
+        const xhr = new XMLHttpRequest();
+        xhr.open("POST", `${API}/upload`);
+        xhr.withCredentials = true;
+
+        xhr.upload.onprogress = (e) => {
+            setProgress((e.loaded / e.total) * 100);
+        };
+
+        xhr.onload = async () => {
+            setProgress(0);
+
+            const res = await fetch(`${API}/files`, {
+                credentials: "include"
+            });
+
+            setFiles(await res.json());
+        };
+
+        xhr.send(formData);
+    };
+
+    const remove = async (id) => {
+        await fetch(`${API}/files/${id}`, {
+            method: "DELETE",
             credentials: "include"
         });
 
-        setUploading(false);
-        setSelectedFile(null);
-        fetchFiles();
+        setFiles(files.filter(f => f.id !== id));
     };
 
-    // 🖱️ Drag & Drop
-    const handleDrop = useCallback((e) => {
-        e.preventDefault();
-        const file = e.dataTransfer.files[0];
-        upload(file);
-    }, [category]);
-
-    const filtered = files
-        .filter(f => filter === "all" || f.category === filter)
-        .filter(f =>
-            f.name.toLowerCase().includes(search.toLowerCase())
-        );
-
-    // 🔐 Not logged in
-    if (authorized === false) {
-        return (
-            <div className="min-h-screen flex items-center justify-center bg-zinc-950 text-white">
-                <a
-                    href={`${API}/auth/discord`}
-                    className="bg-indigo-600 px-6 py-3 rounded-xl"
-                >
-                    Login with Discord
-                </a>
-            </div>
-        );
-    }
-
-    if (loading) {
-        return (
-            <div className="min-h-screen flex items-center justify-center bg-zinc-950 text-white">
-                Loading...
-            </div>
-        );
-    }
-
     return (
-        <div
-            className="min-h-screen bg-zinc-950 text-white p-6"
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={handleDrop}
-        >
-            <div className="max-w-6xl mx-auto">
+        <div className="min-h-screen bg-zinc-950 text-white p-6">
+            <h1 className="text-3xl mb-4">QS Assets</h1>
 
-                {/* Header */}
-                <div className="flex justify-between mb-6">
-                    <h1 className="text-3xl font-bold">QS Assets</h1>
-                    <a href={`${API}/logout`} className="text-sm">Logout</a>
+            <input type="file" onChange={e => setFile(e.target.files[0])} />
+            <button onClick={upload} className="ml-2 bg-indigo-600 px-4 py-2 rounded">
+                Upload
+            </button>
+
+            {progress > 0 && (
+                <div className="w-full bg-zinc-800 h-2 mt-2">
+                    <div
+                        className="bg-indigo-500 h-2"
+                        style={{ width: `${progress}%` }}
+                    />
                 </div>
+            )}
 
-                {/* Upload */}
-                <div className="bg-zinc-900 p-4 rounded-2xl mb-6">
-                    <div className="flex flex-col md:flex-row gap-3">
+            <div className="grid grid-cols-3 gap-4 mt-6">
+                {files.map(f => (
+                    <div key={f.id} className="bg-zinc-900 p-3 rounded">
+                        {f.type.startsWith("image") && (
+                            <img src={f.url} className="h-32 w-full object-cover" />
+                        )}
 
-                        <input
-                            type="file"
-                            onChange={(e) => setSelectedFile(e.target.files[0])}
-                        />
-
-                        <select
-                            value={category}
-                            onChange={(e) => setCategory(e.target.value)}
-                            className="bg-zinc-800 px-3 py-2 rounded-lg"
-                        >
-                            {categories.slice(1).map(c => (
-                                <option key={c}>{c}</option>
-                            ))}
-                        </select>
+                        <div className="text-sm mt-2">{f.name}</div>
 
                         <button
-                            onClick={() => upload(selectedFile)}
-                            className="bg-indigo-600 px-4 py-2 rounded-lg"
+                            onClick={() => remove(f.id)}
+                            className="text-red-400 text-xs mt-2"
                         >
-                            {uploading ? "Uploading..." : "Upload"}
+                            Delete
                         </button>
                     </div>
-
-                    {/* Drag hint */}
-                    <div className="text-zinc-500 text-sm mt-2">
-                        Drag & drop files anywhere to upload
-                    </div>
-                </div>
-
-                {/* Search */}
-                <input
-                    type="text"
-                    placeholder="Search files..."
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    className="w-full mb-4 px-4 py-2 rounded-xl bg-zinc-800"
-                />
-
-                {/* Filters */}
-                <div className="flex flex-wrap gap-2 mb-6">
-                    {categories.map(c => (
-                        <button
-                            key={c}
-                            onClick={() => setFilter(c)}
-                            className={`px-4 py-1 rounded-full text-sm ${filter === c
-                                ? "bg-indigo-600"
-                                : "bg-zinc-800"
-                                }`}
-                        >
-                            {c}
-                        </button>
-                    ))}
-                </div>
-
-                {/* Files */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    {filtered.map(file => (
-                        <div
-                            key={file.id}
-                            className="bg-zinc-900 p-3 rounded-2xl"
-                        >
-                            {/* 🖼️ Image Preview */}
-                            {file.type.startsWith("image") && (
-                                <img
-                                    src={file.url}
-                                    className="w-full h-40 object-cover rounded-lg mb-2"
-                                />
-                            )}
-
-                            <a
-                                href={file.url}
-                                target="_blank"
-                                className="text-indigo-400 text-sm break-all"
-                            >
-                                {file.name}
-                            </a>
-
-                            {/* Pills */}
-                            <div className="flex flex-wrap gap-1 mt-2 text-xs">
-                                <span className="bg-zinc-800 px-2 py-1 rounded-full">
-                                    {file.category}
-                                </span>
-
-                                <span className="bg-zinc-800 px-2 py-1 rounded-full">
-                                    {(file.size / 1024).toFixed(1)} KB
-                                </span>
-                            </div>
-
-                            {/* 👤 uploader */}
-                            <div className="text-xs text-zinc-500 mt-2">
-                                uploaded by {file.uploader}
-                            </div>
-                        </div>
-                    ))}
-                </div>
-
+                ))}
             </div>
         </div>
     );
