@@ -36,7 +36,7 @@ app.options("*", cors({ origin: allowedOrigins, credentials: true }));
 app.use(express.json());
 
 const SQLiteStore = SQLiteStoreFactory(session);
-const sessionDB = new sqlite3("/data/sessions.sqlite");
+// const sessionDB = new sqlite3("/data/sessions.sqlite");
 
 app.use(session({
     store: new SQLiteStore({
@@ -93,7 +93,7 @@ syncR2();
 app.post("/upload", requireAuth, upload.single("file"), async (req, res) => {
     try {
         const file = req.file;
-        const { category = "misc", rename } = req.body;
+        let { category = "misc", rename } = req.body;
         if (!file) return res.status(400).json({ error: "No file uploaded" });
 
         const fileName = rename?.trim() || file.originalname;
@@ -109,6 +109,7 @@ app.post("/upload", requireAuth, upload.single("file"), async (req, res) => {
 
         fs.unlinkSync(file.path);
 
+        const prefix = "https://cdn.simplysnox.com";
         const url = `${process.env.R2_PUBLIC_URL}/${key}`;
         let newFile = {
             id: uuidv4(),
@@ -165,22 +166,22 @@ app.post("/upload", requireAuth, upload.single("file"), async (req, res) => {
 
         const embed = {
             title: `${icon} ${label}`,
-            description: `**${newFile.name}**`,
+            description: `> **${newFile.name}**`,
             color: 0x5865F2,
             fields: [
                 {
                     name: "Category",
-                    value: category,
+                    value: `\`${category}\``,
                     inline: true
                 },
                 {
                     name: "Uploader",
-                    value: newFile.uploader,
+                    value: `\`${newFile.uploader}\``,
                     inline: true
                 },
                 {
                     name: "Size",
-                    value: `${(newFile.size / 1024).toFixed(2)} KB`,
+                    value: `\`${(newFile.size / 1024).toFixed(2)} KB\``,
                     inline: true
                 }
             ],
@@ -197,9 +198,9 @@ app.post("/upload", requireAuth, upload.single("file"), async (req, res) => {
                 components: [
                     {
                         type: 2,
-                        label: "Link to CDN",
                         style: 5,
-                        url: newFile.url
+                        label: "Open CDN",
+                        url: `${prefix}/${newFile.category}/${newFile.name}`
                     }
                 ]
             }
@@ -215,11 +216,18 @@ app.post("/upload", requireAuth, upload.single("file"), async (req, res) => {
             };
         }
 
-        await fetch(process.env.DISCORD_WEBHOOK, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ embeds: [embed], components })
-        });
+        try {
+            await fetch(process.env.DISCORD_WEBHOOK, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    embeds: [embed],
+                    components: components
+                })
+            });
+        } catch (err) {
+            console.error("Webhook failed:", err);
+        }
 
         res.json(newFile);
 
