@@ -3,7 +3,12 @@ import {
     GatewayIntentBits,
     ActivityType,
     PresenceUpdateStatus,
-    Events
+    Events,
+    EmbedBuilder,
+    ActionRowBuilder,
+    ButtonBuilder,
+    ButtonStyle,
+    ComponentType
 } from "discord.js";
 
 import { registerCommands } from "./commands/cdn.js";

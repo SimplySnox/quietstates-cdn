@@ -110,7 +110,7 @@ export async function handleInteraction(interaction) {
             const msg = await interaction.reply({
                 embeds: [build()],
                 components: buildRows(),
-                ephemeral: true,
+                flags: 64,
                 fetchReply: true
             });
 
@@ -121,7 +121,7 @@ export async function handleInteraction(interaction) {
 
             collector.on("collect", async (i) => {
                 if (i.user.id !== interaction.user.id) {
-                    return i.reply({ content: "Not yours.", ephemeral: true });
+                    return i.reply({ content: "Not yours.", flags: 64 });
                 }
 
                 if (i.customId === "prev") page--;
@@ -134,24 +134,39 @@ export async function handleInteraction(interaction) {
                     const confirmRow = new ActionRowBuilder().addComponents(
                         new ButtonBuilder()
                             .setCustomId(`confirm_${id}`)
-                            .setLabel("Confirm")
+                            .setLabel("Confirm Delete")
                             .setStyle(ButtonStyle.Danger),
+
                         new ButtonBuilder()
                             .setCustomId("cancel")
                             .setLabel("Cancel")
                             .setStyle(ButtonStyle.Secondary)
                     );
 
-                    return i.reply({
-                        content: `Delete **${file.name}**?`,
-                        components: [confirmRow],
-                        ephemeral: true
+                    return i.update({
+                        content: `⚠️ Delete **${file.name}**?\nThis cannot be undone.`,
+                        embeds: [],
+                        components: [confirmRow]
                     });
                 }
 
                 else if (i.customId.startsWith("confirm_")) {
+                    await i.deferUpdate();
+
                     const id = i.customId.split("_")[1];
                     const file = db.prepare("SELECT * FROM files WHERE id=?").get(id);
+
+                    if (!file) {
+                        return i.followUp({
+                            content: "File no longer exists.",
+                            flags: 64
+                        });
+                    }
+
+                    await i.update({
+                        content: `⏳ Deleting **${file.name}**...`,
+                        components: []
+                    });
 
                     const key = file.url.replace(`${process.env.R2_PUBLIC_URL}/`, "");
 
@@ -164,14 +179,18 @@ export async function handleInteraction(interaction) {
 
                     await logDelete(i.user, file);
 
-                    return i.update({
-                        content: `✅ Deleted ${file.name}`,
-                        components: []
+                    return i.followUp({
+                        content: `✅ Deleted **${file.name}**`,
+                        flags: 64
                     });
                 }
 
                 else if (i.customId === "cancel") {
-                    return i.update({ content: "Cancelled.", components: [] });
+                    return i.update({
+                        content: "Cancelled.",
+                        embeds: [build()],
+                        components: buildRows()
+                    });
                 }
 
                 await i.update({
@@ -184,7 +203,7 @@ export async function handleInteraction(interaction) {
         /* ================= DELETE ================= */
         if (sub === "delete") {
             const file = getFileByName(interaction.options.getString("file"));
-            if (!file) return interaction.reply({ content: "Not found", ephemeral: true });
+            if (!file) return interaction.reply({ content: "Not found", flags: 64 });
 
             const key = file.url.replace(`${process.env.R2_PUBLIC_URL}/`, "");
 
@@ -199,7 +218,7 @@ export async function handleInteraction(interaction) {
 
             return interaction.reply({
                 content: `✅ Deleted ${file.name}`,
-                ephemeral: true
+                flags: 64
             });
         }
 
