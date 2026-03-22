@@ -14,6 +14,11 @@ import { logDelete } from "../utils/logger.js";
 
 const EMBED_COLOR = 0x2f3136;
 
+const icon = f.type.startsWith("image") ? "🖼️" :
+    f.type.startsWith("video") ? "🎬" :
+        f.type.startsWith("audio") ? "🎶" :
+            "📁";
+
 /* ================= EXPORT ================= */
 export async function handleInteraction(interaction) {
     try {
@@ -51,23 +56,37 @@ export async function handleInteraction(interaction) {
         /* ================= LIST ================= */
         if (sub === "list") {
             const category = interaction.options.getString("category");
-            const files = getFiles(category);
+
+            let files = getFiles(category);
 
             let page = 0;
             const perPage = 5;
-            const totalPages = Math.ceil(files.length / perPage) || 1;
+
+            const formatName = (name, max = 18) =>
+                name.length > max ? name.slice(0, max) + "…" : name;
 
             const build = () => {
+                const totalPages = Math.ceil(files.length / perPage) || 1;
                 const chunk = files.slice(page * perPage, page * perPage + perPage);
 
                 return new EmbedBuilder()
                     .setColor(EMBED_COLOR)
-                    .setTitle(`CDN Files`)
-                    .setDescription(chunk.map(f => `• ${f.name}`).join("\n") || "None")
-                    .setFooter({ text: `Page ${page + 1}/${totalPages}` });
+                    .setTitle(`📦 CDN Files${category ? ` • ${category}` : ""}`)
+                    .setDescription(
+                        chunk.length
+                            ? chunk.map(f =>
+                                `• ${icon ? ` • ${icon}` : ""} **${formatName(f.name, 28)}**\n` +
+                                `> ${Math.round(f.size / 1024)} KB`
+                            ).join("\n\n")
+                            : "> *No files found*"
+                    )
+                    .setFooter({
+                        text: `Page ${page + 1}/${totalPages} • ${files.length} files`
+                    });
             };
 
-            const buildRows = () => {
+            const buildRows = (disabled = false) => {
+                const totalPages = Math.ceil(files.length / perPage) || 1;
                 const chunk = files.slice(page * perPage, page * perPage + perPage);
 
                 const rows = [];
@@ -76,7 +95,7 @@ export async function handleInteraction(interaction) {
                     rows.push(
                         new ActionRowBuilder().addComponents(
                             new ButtonBuilder()
-                                .setLabel("Open")
+                                .setLabel(`Open ${formatName(f.name, 12)}`)
                                 .setStyle(ButtonStyle.Link)
                                 .setURL(f.url),
 
@@ -84,6 +103,7 @@ export async function handleInteraction(interaction) {
                                 .setCustomId(`delete_${f.id}`)
                                 .setLabel("Delete")
                                 .setStyle(ButtonStyle.Danger)
+                                .setDisabled(disabled)
                         )
                     );
                 });
@@ -94,25 +114,26 @@ export async function handleInteraction(interaction) {
                             .setCustomId("prev")
                             .setLabel("◀")
                             .setStyle(ButtonStyle.Secondary)
-                            .setDisabled(page === 0),
+                            .setDisabled(disabled || page === 0),
 
                         new ButtonBuilder()
                             .setCustomId("next")
                             .setLabel("▶")
                             .setStyle(ButtonStyle.Secondary)
-                            .setDisabled(page >= totalPages - 1)
+                            .setDisabled(disabled || page >= totalPages - 1)
                     )
                 );
 
                 return rows;
             };
 
-            const msg = await interaction.reply({
+            await interaction.reply({
                 embeds: [build()],
                 components: buildRows(),
-                flags: 64,
-                fetchReply: true
+                flags: 64
             });
+
+            const msg = await interaction.fetchReply();
 
             const collector = msg.createMessageComponentCollector({
                 componentType: ComponentType.Button,
@@ -124,47 +145,54 @@ export async function handleInteraction(interaction) {
                     return i.reply({ content: "Not yours.", flags: 64 });
                 }
 
+                /* ===== PAGINATION ===== */
                 if (i.customId === "prev") page--;
                 else if (i.customId === "next") page++;
 
+                /* ===== DELETE CLICK ===== */
                 else if (i.customId.startsWith("delete_")) {
                     const id = i.customId.split("_")[1];
                     const file = db.prepare("SELECT * FROM files WHERE id=?").get(id);
 
-                    const confirmRow = new ActionRowBuilder().addComponents(
-                        new ButtonBuilder()
-                            .setCustomId(`confirm_${id}`)
-                            .setLabel("Confirm Delete")
-                            .setStyle(ButtonStyle.Danger),
-
-                        new ButtonBuilder()
-                            .setCustomId("cancel")
-                            .setLabel("Cancel")
-                            .setStyle(ButtonStyle.Secondary)
-                    );
-
                     return i.update({
-                        content: `⚠️ Delete **${file.name}**?\nThis cannot be undone.`,
+                        content: `> ⚠️ Delete **${file.name}**?\n> This cannot be undone.`,
                         embeds: [],
-                        components: [confirmRow]
+                        components: [
+                            new ActionRowBuilder().addComponents(
+                                new ButtonBuilder()
+                                    .setCustomId(`confirm_${id}`)
+                                    .setLabel("Confirm")
+                                    .setStyle(ButtonStyle.Danger),
+
+                                new ButtonBuilder()
+                                    .setCustomId("cancel")
+                                    .setLabel("Cancel")
+                                    .setStyle(ButtonStyle.Secondary)
+                            )
+                        ]
                     });
                 }
 
+                /* ===== CONFIRM DELETE ===== */
                 else if (i.customId.startsWith("confirm_")) {
                     const id = i.customId.split("_")[1];
                     const file = db.prepare("SELECT * FROM files WHERE id=?").get(id);
 
                     if (!file) {
                         return i.update({
-                            content: "File no longer exists.",
+                            content: "File already gone.",
                             components: []
                         });
                     }
 
+                    // 🔒 disable everything immediately
                     await i.update({
-                        content: `⏳ Deleting **${file.name}**...`,
+                        content: `> ⏳ Deleting **${file.name}**...`,
                         components: []
                     });
+
+                    // ⚡ optimistic UI → remove instantly
+                    files = files.filter(f => f.id !== id);
 
                     const key = file.url.replace(`${process.env.R2_PUBLIC_URL}/`, "");
 
@@ -177,20 +205,24 @@ export async function handleInteraction(interaction) {
 
                     await logDelete(i.user, file);
 
+                    // 🔄 refresh list view
                     return i.followUp({
-                        content: `✅ Deleted **${file.name}**`,
+                        embeds: [build()],
+                        components: buildRows(),
                         flags: 64
                     });
                 }
 
+                /* ===== CANCEL ===== */
                 else if (i.customId === "cancel") {
                     return i.update({
-                        content: "Cancelled.",
+                        content: null,
                         embeds: [build()],
                         components: buildRows()
                     });
                 }
 
+                /* ===== NORMAL UPDATE ===== */
                 await i.update({
                     embeds: [build()],
                     components: buildRows()
