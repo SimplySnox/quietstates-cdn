@@ -1,6 +1,6 @@
 import passport from "passport";
 import { Strategy as DiscordStrategy } from "passport-discord";
-import db from "./database/db.js";
+import db from "../database/db.js";
 
 const ALLOWED_USERS = [
     "424342692106076166",
