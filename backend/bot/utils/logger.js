@@ -1,7 +1,7 @@
 import client from "../core.js";
 import { EmbedBuilder } from "discord.js";
 
-const LOG_CHANNEL = process.env.DISCORD_LOG_CHANNEL;
+const LOG_CHANNEL = process.env.DISCORD_CHANNEL_ID;
 const EMBED_COLOR = 0x2f3136;
 
 export const logDelete = async (user, file) => {

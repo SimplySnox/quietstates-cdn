@@ -14,37 +14,67 @@ import { logDelete } from "../utils/logger.js";
 
 const EMBED_COLOR = 0x2f3136;
 
-const icon = f.type.startsWith("image") ? "🖼️" :
-    f.type.startsWith("video") ? "🎬" :
-        f.type.startsWith("audio") ? "🎶" :
-            "📁";
+/* ================= HELPERS ================= */
+const getIcon = (type) => {
+    if (!type) return "📁";
+    if (type.startsWith("image")) return "🖼️";
+    if (type.startsWith("video")) return "🎬";
+    if (type.startsWith("audio")) return "🎵";
 
-/* ================= EXPORT ================= */
+    if (type.includes("javascript") || type.includes("json") || type.includes("html") || type.includes("css"))
+        return "💻";
+
+    if (type.includes("zip") || type.includes("rar") || type.includes("tar") || type.includes("7z"))
+        return "📦";
+
+    return "📁";
+};
+
+const formatSize = (bytes) => {
+    if (!bytes) return "0 KB";
+    const kb = bytes / 1024;
+    if (kb < 1024) return `${kb.toFixed(1)} KB`;
+    const mb = kb / 1024;
+    if (mb < 1024) return `${mb.toFixed(1)} MB`;
+    return `${(mb / 1024).toFixed(2)} GB`;
+};
+
+const timeAgo = (date) => {
+    const diff = Date.now() - new Date(date).getTime();
+    const s = Math.floor(diff / 1000);
+    if (s < 60) return `${s}s ago`;
+    const m = Math.floor(s / 60);
+    if (m < 60) return `${m}m ago`;
+    const h = Math.floor(m / 60);
+    if (h < 24) return `${h}h ago`;
+    return `${Math.floor(h / 24)}d ago`;
+};
+
+const formatName = (name, max = 20) =>
+    name.length > max ? name.slice(0, max) + "…" : name;
+
+/* ================= MAIN ================= */
 export async function handleInteraction(interaction) {
     try {
-        /* ---------- AUTOCOMPLETE ---------- */
+        /* AUTOCOMPLETE */
         if (interaction.isAutocomplete()) {
             const focused = interaction.options.getFocused(true);
 
             if (focused.name === "category") {
-                const categories = getCategories()
-                    .filter(c => c.includes(focused.value))
-                    .slice(0, 25);
-
-                return interaction.respond(categories.map(c => ({ name: c, value: c })));
+                return interaction.respond(
+                    getCategories()
+                        .filter(c => c.includes(focused.value))
+                        .slice(0, 25)
+                        .map(c => ({ name: c, value: c }))
+                );
             }
 
             if (focused.name === "file") {
-                const files = db.prepare(`
-                    SELECT name FROM files
-                    WHERE name LIKE ?
-                    LIMIT 25
-                `).all(`%${focused.value}%`);
-
-                return interaction.respond(files.map(f => ({
-                    name: f.name,
-                    value: f.name
-                })));
+                return interaction.respond(
+                    db.prepare(`SELECT name FROM files WHERE name LIKE ? LIMIT 25`)
+                        .all(`%${focused.value}%`)
+                        .map(f => ({ name: f.name, value: f.name }))
+                );
             }
         }
 
@@ -56,71 +86,81 @@ export async function handleInteraction(interaction) {
         /* ================= LIST ================= */
         if (sub === "list") {
             const category = interaction.options.getString("category");
+            const search = interaction.options.getString("search");
+            const sort = interaction.options.getString("sort") || "date_desc";
+            const group = interaction.options.getBoolean("group") || false;
 
             let files = getFiles(category);
 
+            if (search) {
+                files = files.filter(f =>
+                    f.name.toLowerCase().includes(search.toLowerCase())
+                );
+            }
+
+            files.sort((a, b) => {
+                switch (sort) {
+                    case "date_asc": return new Date(a.createdAt) - new Date(b.createdAt);
+                    case "size_asc": return a.size - b.size;
+                    case "size_desc": return b.size - a.size;
+                    case "type": return (a.type || "").localeCompare(b.type || "");
+                    default: return new Date(b.createdAt) - new Date(a.createdAt);
+                }
+            });
+
             let page = 0;
             const perPage = 5;
-
-            const formatName = (name, max = 18) =>
-                name.length > max ? name.slice(0, max) + "…" : name;
 
             const build = () => {
                 const totalPages = Math.ceil(files.length / perPage) || 1;
                 const chunk = files.slice(page * perPage, page * perPage + perPage);
 
+                const content = group
+                    ? Object.entries(
+                        chunk.reduce((acc, f) => {
+                            const key = (f.type || "other").split("/")[0];
+                            if (!acc[key]) acc[key] = [];
+                            acc[key].push(f);
+                            return acc;
+                        }, {})
+                    ).map(([type, items]) =>
+                        `### ${type.toUpperCase()}\n` +
+                        items.map(f =>
+                            `• ${getIcon(f.type)} **${formatName(f.name)}**\n> ${formatSize(f.size)} • ${timeAgo(f.createdAt)}`
+                        ).join("\n")
+                    ).join("\n\n")
+                    : chunk.map(f =>
+                        `• ${getIcon(f.type)} **${formatName(f.name)}**\n> ${formatSize(f.size)} • ${timeAgo(f.createdAt)}`
+                    ).join("\n\n") || "> *No files*";
+
                 return new EmbedBuilder()
                     .setColor(EMBED_COLOR)
-                    .setTitle(`📦 CDN Files${category ? ` • ${category}` : ""}`)
-                    .setDescription(
-                        chunk.length
-                            ? chunk.map(f =>
-                                `• ${icon ? ` • ${icon}` : ""} **${formatName(f.name, 28)}**\n` +
-                                `> ${Math.round(f.size / 1024)} KB`
-                            ).join("\n\n")
-                            : "> *No files found*"
-                    )
-                    .setFooter({
-                        text: `Page ${page + 1}/${totalPages} • ${files.length} files`
-                    });
+                    .setTitle(`📦 CDN Files`)
+                    .setDescription(content)
+                    .setFooter({ text: `Page ${page + 1}` });
             };
 
-            const buildRows = (disabled = false) => {
-                const totalPages = Math.ceil(files.length / perPage) || 1;
+            const buildRows = () => {
                 const chunk = files.slice(page * perPage, page * perPage + perPage);
 
-                const rows = [];
+                const rows = chunk.map(f =>
+                    new ActionRowBuilder().addComponents(
+                        new ButtonBuilder()
+                            .setLabel(`Open ${formatName(f.name, 12)}`)
+                            .setStyle(ButtonStyle.Link)
+                            .setURL(f.url),
 
-                chunk.forEach(f => {
-                    rows.push(
-                        new ActionRowBuilder().addComponents(
-                            new ButtonBuilder()
-                                .setLabel(`Open ${formatName(f.name, 12)}`)
-                                .setStyle(ButtonStyle.Link)
-                                .setURL(f.url),
-
-                            new ButtonBuilder()
-                                .setCustomId(`delete_${f.id}`)
-                                .setLabel("Delete")
-                                .setStyle(ButtonStyle.Danger)
-                                .setDisabled(disabled)
-                        )
-                    );
-                });
+                        new ButtonBuilder()
+                            .setCustomId(`delete_${f.id}`)
+                            .setLabel("Delete")
+                            .setStyle(ButtonStyle.Danger)
+                    )
+                );
 
                 rows.push(
                     new ActionRowBuilder().addComponents(
-                        new ButtonBuilder()
-                            .setCustomId("prev")
-                            .setLabel("◀")
-                            .setStyle(ButtonStyle.Secondary)
-                            .setDisabled(disabled || page === 0),
-
-                        new ButtonBuilder()
-                            .setCustomId("next")
-                            .setLabel("▶")
-                            .setStyle(ButtonStyle.Secondary)
-                            .setDisabled(disabled || page >= totalPages - 1)
+                        new ButtonBuilder().setCustomId("prev").setLabel("◀").setStyle(ButtonStyle.Secondary),
+                        new ButtonBuilder().setCustomId("next").setLabel("▶").setStyle(ButtonStyle.Secondary)
                     )
                 );
 
@@ -141,57 +181,17 @@ export async function handleInteraction(interaction) {
             });
 
             collector.on("collect", async (i) => {
-                if (i.user.id !== interaction.user.id) {
-                    return i.reply({ content: "Not yours.", flags: 64 });
-                }
+                if (i.user.id !== interaction.user.id) return i.reply({ content: "Not yours", flags: 64 });
 
-                /* ===== PAGINATION ===== */
                 if (i.customId === "prev") page--;
                 else if (i.customId === "next") page++;
 
-                /* ===== DELETE CLICK ===== */
                 else if (i.customId.startsWith("delete_")) {
                     const id = i.customId.split("_")[1];
                     const file = db.prepare("SELECT * FROM files WHERE id=?").get(id);
 
-                    return i.update({
-                        content: `> ⚠️ Delete **${file.name}**?\n> This cannot be undone.`,
-                        embeds: [],
-                        components: [
-                            new ActionRowBuilder().addComponents(
-                                new ButtonBuilder()
-                                    .setCustomId(`confirm_${id}`)
-                                    .setLabel("Confirm")
-                                    .setStyle(ButtonStyle.Danger),
+                    await i.update({ content: `⏳ Deleting **${file.name}**...`, components: [] });
 
-                                new ButtonBuilder()
-                                    .setCustomId("cancel")
-                                    .setLabel("Cancel")
-                                    .setStyle(ButtonStyle.Secondary)
-                            )
-                        ]
-                    });
-                }
-
-                /* ===== CONFIRM DELETE ===== */
-                else if (i.customId.startsWith("confirm_")) {
-                    const id = i.customId.split("_")[1];
-                    const file = db.prepare("SELECT * FROM files WHERE id=?").get(id);
-
-                    if (!file) {
-                        return i.update({
-                            content: "File already gone.",
-                            components: []
-                        });
-                    }
-
-                    // 🔒 disable everything immediately
-                    await i.update({
-                        content: `> ⏳ Deleting **${file.name}**...`,
-                        components: []
-                    });
-
-                    // ⚡ optimistic UI → remove instantly
                     files = files.filter(f => f.id !== id);
 
                     const key = file.url.replace(`${process.env.R2_PUBLIC_URL}/`, "");
@@ -202,10 +202,8 @@ export async function handleInteraction(interaction) {
                     }));
 
                     db.prepare("DELETE FROM files WHERE id=?").run(id);
-
                     await logDelete(i.user, file);
 
-                    // 🔄 refresh list view
                     return i.followUp({
                         embeds: [build()],
                         components: buildRows(),
@@ -213,16 +211,6 @@ export async function handleInteraction(interaction) {
                     });
                 }
 
-                /* ===== CANCEL ===== */
-                else if (i.customId === "cancel") {
-                    return i.update({
-                        content: null,
-                        embeds: [build()],
-                        components: buildRows()
-                    });
-                }
-
-                /* ===== NORMAL UPDATE ===== */
                 await i.update({
                     embeds: [build()],
                     components: buildRows()
@@ -243,7 +231,6 @@ export async function handleInteraction(interaction) {
             }));
 
             db.prepare("DELETE FROM files WHERE id=?").run(file.id);
-
             await logDelete(interaction.user, file);
 
             return interaction.reply({

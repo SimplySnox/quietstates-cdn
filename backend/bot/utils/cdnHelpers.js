@@ -3,16 +3,17 @@ import db from "../../database/db.js";
 export const getCategories = () => {
     return db.prepare(`
         SELECT DISTINCT category FROM files
+        WHERE name != ''
         ORDER BY category ASC
     `).all().map(c => c.category);
 };
 
 export const getFiles = (category) => {
-    let query = `SELECT * FROM files`;
+    let query = `SELECT * FROM files WHERE name != ''`;
     let params = [];
 
     if (category) {
-        query += ` WHERE category = ?`;
+        query += ` AND category = ?`;
         params.push(category);
     }
 

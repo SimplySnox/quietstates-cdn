@@ -14,6 +14,28 @@ export const cdnCommand = {
                     name: "category",
                     description: "Filter category",
                     autocomplete: true
+                },
+                {
+                    type: 3,
+                    name: "search",
+                    description: "Search files"
+                },
+                {
+                    type: 3,
+                    name: "sort",
+                    description: "Sort files",
+                    choices: [
+                        { name: "Newest", value: "date_desc" },
+                        { name: "Oldest", value: "date_asc" },
+                        { name: "Largest", value: "size_desc" },
+                        { name: "Smallest", value: "size_asc" },
+                        { name: "Type", value: "type" }
+                    ]
+                },
+                {
+                    type: 5,
+                    name: "group",
+                    description: "Group by file type"
                 }
             ]
         },
