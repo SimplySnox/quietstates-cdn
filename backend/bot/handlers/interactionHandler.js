@@ -15,17 +15,27 @@ import { logDelete } from "../utils/logger.js";
 const EMBED_COLOR = 0x2f3136;
 
 /* ================= HELPERS ================= */
+
 const getIcon = (type) => {
     if (!type) return "📁";
     if (type.startsWith("image")) return "🖼️";
     if (type.startsWith("video")) return "🎬";
     if (type.startsWith("audio")) return "🎵";
 
-    if (type.includes("javascript") || type.includes("json") || type.includes("html") || type.includes("css"))
-        return "💻";
+    if (
+        type.includes("javascript") ||
+        type.includes("json") ||
+        type.includes("html") ||
+        type.includes("css") ||
+        type.includes("typescript")
+    ) return "💻";
 
-    if (type.includes("zip") || type.includes("rar") || type.includes("tar") || type.includes("7z"))
-        return "📦";
+    if (
+        type.includes("zip") ||
+        type.includes("rar") ||
+        type.includes("tar") ||
+        type.includes("7z")
+    ) return "📦";
 
     return "📁";
 };
@@ -54,9 +64,10 @@ const formatName = (name, max = 20) =>
     name.length > max ? name.slice(0, max) + "…" : name;
 
 /* ================= MAIN ================= */
+
 export async function handleInteraction(interaction) {
     try {
-        /* AUTOCOMPLETE */
+        /* ================= AUTOCOMPLETE ================= */
         if (interaction.isAutocomplete()) {
             const focused = interaction.options.getFocused(true);
 
@@ -92,12 +103,14 @@ export async function handleInteraction(interaction) {
 
             let files = getFiles(category);
 
+            /* ===== SEARCH ===== */
             if (search) {
                 files = files.filter(f =>
                     f.name.toLowerCase().includes(search.toLowerCase())
                 );
             }
 
+            /* ===== SORT ===== */
             files.sort((a, b) => {
                 switch (sort) {
                     case "date_asc": return new Date(a.createdAt) - new Date(b.createdAt);
@@ -115,32 +128,40 @@ export async function handleInteraction(interaction) {
                 const totalPages = Math.ceil(files.length / perPage) || 1;
                 const chunk = files.slice(page * perPage, page * perPage + perPage);
 
-                const content = group
-                    ? Object.entries(
-                        chunk.reduce((acc, f) => {
-                            const key = (f.type || "other").split("/")[0];
-                            if (!acc[key]) acc[key] = [];
-                            acc[key].push(f);
-                            return acc;
-                        }, {})
-                    ).map(([type, items]) =>
-                        `### ${type.toUpperCase()}\n` +
-                        items.map(f =>
-                            `• ${getIcon(f.type)} **${formatName(f.name)}**\n> ${formatSize(f.size)} • ${timeAgo(f.createdAt)}`
-                        ).join("\n")
-                    ).join("\n\n")
-                    : chunk.map(f =>
-                        `• ${getIcon(f.type)} **${formatName(f.name)}**\n> ${formatSize(f.size)} • ${timeAgo(f.createdAt)}`
-                    ).join("\n\n") || "> *No files*";
+                const content = chunk.length
+                    ? (group
+                        ? Object.entries(
+                            chunk.reduce((acc, f) => {
+                                const key = (f.type || "other").split("/")[0];
+                                if (!acc[key]) acc[key] = [];
+                                acc[key].push(f);
+                                return acc;
+                            }, {})
+                        ).map(([type, items]) =>
+                            `### ${type.toUpperCase()}\n` +
+                            items.map(f =>
+                                `• ${getIcon(f.type)} **${formatName(f.name)}**\n` +
+                                `> ${formatSize(f.size)} • ${timeAgo(f.createdAt)}`
+                            ).join("\n")
+                        ).join("\n\n")
+                        : chunk.map(f =>
+                            `• ${getIcon(f.type)} **${formatName(f.name)}**\n` +
+                            `> ${formatSize(f.size)} • ${timeAgo(f.createdAt)}`
+                        ).join("\n\n")
+                    )
+                    : "> *No files found*";
 
                 return new EmbedBuilder()
                     .setColor(EMBED_COLOR)
-                    .setTitle(`📦 CDN Files`)
+                    .setTitle(`📦 CDN Files${category ? ` • ${category}` : ""}`)
                     .setDescription(content)
-                    .setFooter({ text: `Page ${page + 1}` });
+                    .setFooter({
+                        text: `Page ${page + 1}/${totalPages} • ${files.length} files`
+                    });
             };
 
-            const buildRows = () => {
+            const buildRows = (disabled = false) => {
+                const totalPages = Math.ceil(files.length / perPage) || 1;
                 const chunk = files.slice(page * perPage, page * perPage + perPage);
 
                 const rows = chunk.map(f =>
@@ -154,13 +175,23 @@ export async function handleInteraction(interaction) {
                             .setCustomId(`delete_${f.id}`)
                             .setLabel("Delete")
                             .setStyle(ButtonStyle.Danger)
+                            .setDisabled(disabled)
                     )
                 );
 
                 rows.push(
                     new ActionRowBuilder().addComponents(
-                        new ButtonBuilder().setCustomId("prev").setLabel("◀").setStyle(ButtonStyle.Secondary),
-                        new ButtonBuilder().setCustomId("next").setLabel("▶").setStyle(ButtonStyle.Secondary)
+                        new ButtonBuilder()
+                            .setCustomId("prev")
+                            .setLabel("◀")
+                            .setStyle(ButtonStyle.Secondary)
+                            .setDisabled(disabled || page === 0),
+
+                        new ButtonBuilder()
+                            .setCustomId("next")
+                            .setLabel("▶")
+                            .setStyle(ButtonStyle.Secondary)
+                            .setDisabled(disabled || page >= totalPages - 1)
                     )
                 );
 
@@ -181,47 +212,83 @@ export async function handleInteraction(interaction) {
             });
 
             collector.on("collect", async (i) => {
-                if (i.user.id !== interaction.user.id) return i.reply({ content: "Not yours", flags: 64 });
+                if (i.user.id !== interaction.user.id) {
+                    return i.reply({ content: "Not yours, carry on with your day!", flags: 64 });
+                }
 
-                if (i.customId === "prev") page--;
-                else if (i.customId === "next") page++;
-
-                else if (i.customId.startsWith("delete_")) {
-                    const id = i.customId.split("_")[1];
-                    const file = db.prepare("SELECT * FROM files WHERE id=?").get(id);
-
-                    await i.update({ content: `⏳ Deleting **${file.name}**...`, components: [] });
-
-                    files = files.filter(f => f.id !== id);
-
-                    const key = file.url.replace(`${process.env.R2_PUBLIC_URL}/`, "");
-
-                    await r2.send(new DeleteObjectCommand({
-                        Bucket: process.env.R2_BUCKET,
-                        Key: key
-                    }));
-
-                    db.prepare("DELETE FROM files WHERE id=?").run(id);
-                    await logDelete(i.user, file);
-
-                    return i.followUp({
+                /* ===== PAGINATION ===== */
+                if (i.customId === "prev") {
+                    page--;
+                    return i.update({
                         embeds: [build()],
-                        components: buildRows(),
-                        flags: 64
+                        components: buildRows()
                     });
                 }
 
-                await i.update({
-                    embeds: [build()],
-                    components: buildRows()
-                });
+                if (i.customId === "next") {
+                    page++;
+                    return i.update({
+                        embeds: [build()],
+                        components: buildRows()
+                    });
+                }
+
+                /* ===== DELETE ===== */
+                if (i.customId.startsWith("delete_")) {
+                    const id = i.customId.split("_")[1];
+                    const file = db.prepare("SELECT * FROM files WHERE id=?").get(id);
+
+                    if (!file) {
+                        return i.reply({
+                            content: `> File (\`${file.name}\`) not found.`,
+                            flags: 64
+                        });
+                    }
+
+                    await i.deferUpdate();
+
+                    try {
+                        /* optimistic UI */
+                        files = files.filter(f => f.id !== id);
+
+                        await interaction.editReply({
+                            embeds: [build()],
+                            components: buildRows(true)
+                        });
+
+                        const key = file.url.replace(`${process.env.R2_PUBLIC_URL}/`, "");
+
+                        await r2.send(new DeleteObjectCommand({
+                            Bucket: process.env.R2_BUCKET,
+                            Key: key
+                        }));
+
+                        db.prepare("DELETE FROM files WHERE id=?").run(id);
+                        await logDelete(i.user, file);
+
+                        await i.followUp({
+                            content: `> ✅ Successfully deleted **${file.name}**.`,
+                            flags: 64
+                        });
+
+                    } catch (err) {
+                        console.error(err);
+
+                        await i.followUp({
+                            content: `> ❌ Failed to delete **${file.name}**.`,
+                            flags: 64
+                        });
+                    }
+
+                    return; // 🔥 critical fix
+                }
             });
         }
 
         /* ================= DELETE ================= */
         if (sub === "delete") {
             const file = getFileByName(interaction.options.getString("file"));
-            if (!file) return interaction.reply({ content: "Not found", flags: 64 });
+            if (!file) return interaction.reply({ content: `> File (\`${file.name}\`) not found.`, flags: 64 });
 
             const key = file.url.replace(`${process.env.R2_PUBLIC_URL}/`, "");
 
@@ -234,7 +301,7 @@ export async function handleInteraction(interaction) {
             await logDelete(interaction.user, file);
 
             return interaction.reply({
-                content: `✅ Deleted ${file.name}`,
+                content: `> ✅ Successfully deleted **${file.name}**.`,
                 flags: 64
             });
         }
