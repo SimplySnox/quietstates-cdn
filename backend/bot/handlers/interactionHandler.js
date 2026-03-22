@@ -12,7 +12,7 @@ import { DeleteObjectCommand } from "@aws-sdk/client-s3";
 import db from "../../database/db.js";
 import { logDelete } from "../utils/logger.js";
 
-const COLOR = 0x2f3136;
+const EMBED_COLOR = 0x2f3136;
 
 /* ================= EXPORT ================= */
 export async function handleInteraction(interaction) {
@@ -61,7 +61,7 @@ export async function handleInteraction(interaction) {
                 const chunk = files.slice(page * perPage, page * perPage + perPage);
 
                 return new EmbedBuilder()
-                    .setColor(COLOR)
+                    .setColor(EMBED_COLOR)
                     .setTitle(`CDN Files`)
                     .setDescription(chunk.map(f => `• ${f.name}`).join("\n") || "None")
                     .setFooter({ text: `Page ${page + 1}/${totalPages}` });

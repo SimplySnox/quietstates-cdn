@@ -14,6 +14,8 @@ import {
 import { registerCommands } from "./commands/cdn.js";
 import { handleInteraction } from "./handlers/interactionHandler.js";
 
+const EMBED_COLOR = 0x2f3136;
+
 const client = new Client({
     intents: [GatewayIntentBits.Guilds]
 });

@@ -2,14 +2,14 @@ import client from "../core.js";
 import { EmbedBuilder } from "discord.js";
 
 const LOG_CHANNEL = process.env.DISCORD_LOG_CHANNEL;
-const COLOR = 0x2f3136;
+const EMBED_COLOR = 0x2f3136;
 
 export const logDelete = async (user, file) => {
     try {
         const channel = await client.channels.fetch(LOG_CHANNEL);
 
         const embed = new EmbedBuilder()
-            .setColor(COLOR)
+            .setEMBED_COLOR(EMBED_COLOR)
             .setTitle("🗑️ File Deleted")
             .addFields(
                 { name: "File", value: `\`${file.name}\`` },
