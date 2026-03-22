@@ -151,15 +151,13 @@ export async function handleInteraction(interaction) {
                 }
 
                 else if (i.customId.startsWith("confirm_")) {
-                    await i.deferUpdate();
-
                     const id = i.customId.split("_")[1];
                     const file = db.prepare("SELECT * FROM files WHERE id=?").get(id);
 
                     if (!file) {
-                        return i.followUp({
+                        return i.update({
                             content: "File no longer exists.",
-                            flags: 64
+                            components: []
                         });
                     }
 

@@ -9,7 +9,7 @@ export const logDelete = async (user, file) => {
         const channel = await client.channels.fetch(LOG_CHANNEL);
 
         const embed = new EmbedBuilder()
-            .setEMBED_COLOR(EMBED_COLOR)
+            .setColor(EMBED_COLOR)
             .setTitle("🗑️ File Deleted")
             .addFields(
                 { name: "File", value: `\`${file.name}\`` },
