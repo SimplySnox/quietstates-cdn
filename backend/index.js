@@ -231,7 +231,7 @@ app.post("/upload", requireAuth, upload.single("file"), async (req, res) => {
         // }
 
         res.json(newFile);
-        await dscFileUpload(newFile);
+        await dscFileUpload(newFile, req.user || 'Unknown');
 
     } catch (err) {
         console.error("UPLOAD ERROR:", err);

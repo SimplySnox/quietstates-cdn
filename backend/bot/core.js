@@ -45,7 +45,7 @@ client.login(process.env.DISCORD_CLIENT_TOKEN);
 export default client;
 
 /* ================= NOTIFY - UPLOAD ================= */
-export const dscFileUpload = async (file) => {
+export const dscFileUpload = async (file, user) => {
     try {
         const channel = await client.channels.fetch(process.env.DISCORD_CHANNEL_ID);
 
@@ -73,6 +73,7 @@ export const dscFileUpload = async (file) => {
         );
 
         await channel.send({
+            content: `<@${user.id}> → uploaded \`${file.name}\``,
             embeds: [embed],
             components: [row]
         });
@@ -109,6 +110,7 @@ export const dscFileDelete = async (file, user) => {
             .setTimestamp();
 
         await channel.send({
+            content: `<@${user.id}> → deleted \`${file.name}\``,
             embeds: [embed],
         });
 
