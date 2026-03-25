@@ -1,6 +1,8 @@
 import { useEffect, useState, useRef } from "react";
 
 const API = "https://api.simplysnox.com";
+
+// Expanded categories with groups
 const categories = [
   "all",              // everything
   "image",            // photos, illustrations
@@ -162,9 +164,29 @@ export default function App() {
                             onChange={(e) => setCategory(e.target.value)}
                             className="bg-zinc-800 border border-zinc-700 focus:border-indigo-500 px-4 py-3 rounded-xl text-sm"
                         >
-                            {categories.slice(1).map((c) => (
-                                <option key={c}>{c}</option>
-                            ))}
+                            <optgroup label="Media">
+                                <option>image</option>
+                                <option>video</option>
+                                <option>audio</option>
+                                <option>animations</option>
+                                <option>thumbnails</option>
+                            </optgroup>
+                            <optgroup label="Branding">
+                                <option>logos</option>
+                                <option>branding</option>
+                                <option>fonts</option>
+                                <option>icons</option>
+                            </optgroup>
+                            <optgroup label="Projects">
+                                <option>project_files</option>
+                                <option>templates</option>
+                                <option>effects_presets</option>
+                                <option>documents</option>
+                                <option>reference</option>
+                                <option>stock_assets</option>
+                            </optgroup>
+                            <option>archive</option>
+                            <option>misc</option>
                         </select>
 
                         {/* Upload button */}
