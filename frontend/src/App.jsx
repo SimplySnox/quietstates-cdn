@@ -1,7 +1,30 @@
 import { useEffect, useState, useRef } from "react";
 
 const API = "https://api.simplysnox.com";
-const categories = ["all", "image", "video", "audio", "thumbnails", "logos", "branding", "misc"];
+const categories = [
+  "all",              // everything
+  "image",            // photos, illustrations
+  "video",            // full-length videos
+  "audio",            // music, SFX, voiceovers
+  "thumbnails",       // preview images
+  "logos",            // brand logos
+  "branding",         // style guides, color palettes
+  "archive",          // old/unused files
+  "misc",             // catch-all
+
+  // Expanded Categories
+  "project_files",    // PSD, AI, Figma, Blender, After Effects, Premiere, etc.
+  "documents",        // PDFs, scripts, guides, DOCX, TXT
+  "templates",        // video/audio/design templates, LUTs, effects presets
+  "animations",       // GIFs, motion graphics
+  "fonts",            // font files
+  "reference",        // moodboards, screenshots, concept art
+  "icons",            // small icons for UI or designs
+  "sprites",          // game assets or sprite sheets
+  "vector_art",       // SVG, EPS, Illustrator files
+  "effects_presets",  // audio/video presets, LUTs, filters
+  "stock_assets",     // stock images, videos, or audio for projects
+];
 
 export default function App() {
     const [files, setFiles] = useState([]);
