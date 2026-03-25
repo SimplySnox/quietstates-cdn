@@ -1,5 +1,5 @@
 {
-    "name": "qs-assets-backend",
+    "name": "quietstates-cdn-backend",
     "type": "module",
     "scripts": {
         "dev": "node index.js"
@@ -19,6 +19,7 @@
         "passport": "^0.7.0",
         "passport-discord": "^0.1.4",
         "resend": "^6.9.4",
+        "ua-parser-js": "^2.0.9",
         "uuid": "^9.0.0"
     }
 }

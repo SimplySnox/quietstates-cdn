@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 
-const API = "https://api.simplysnox.com";
+const API = "https://api.quietstates.xyz";
 
 // Expanded categories with groups
 const categories = [

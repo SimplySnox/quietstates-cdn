@@ -29,7 +29,7 @@ client.once(Events.ClientReady, async () => {
 
     client.user.setPresence({
         activities: [{
-            name: 'cdn.simplysnox.com',
+            name: 'cdn.quietstates.xyz',
             type: ActivityType.Watching
         }],
         status: PresenceUpdateStatus.Idle,
@@ -69,7 +69,7 @@ export const dscFileUpload = async (file, user) => {
             new ButtonBuilder()
                 .setLabel("View on CDN")
                 .setStyle(ButtonStyle.Link)
-                .setURL(`https://cdn.simplysnox.com/${file.category}/${file.name}`)
+                .setURL(`https://cdn.quietstates.xyz/${file.category}/${file.name}`)
         );
 
         await channel.send({

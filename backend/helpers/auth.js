@@ -2,6 +2,7 @@ import passport from "passport";
 import { Strategy as DiscordStrategy } from "passport-discord";
 import db from "../database/db.js";
 import sendLoginEmail from "./mailer.js";
+import UAParser from "ua-parser-js";
 
 const ALLOWED_USERS = [
     "424342692106076166",
@@ -22,9 +23,10 @@ passport.use(
             clientID: process.env.DISCORD_CLIENT_ID,
             clientSecret: process.env.DISCORD_CLIENT_SECRET,
             callbackURL: process.env.DISCORD_CALLBACK,
-            scope: ["identify", "email", "guilds", "guilds.members.read"]
+            scope: ["identify", "email", "guilds", "guilds.members.read"],
+            passReqToCallback: true
         },
-        async (accessToken, refreshToken, profile, done) => {
+        async (req, accessToken, refreshToken, profile, done) => {
             try {
                 const existing = db
                     .prepare("SELECT * FROM users WHERE id = ?")
@@ -33,7 +35,32 @@ passport.use(
                 const now = Date.now();
                 const email = profile.email || null;
 
-                // If exists & fresh cache
+                // ✅ Extract IP (handles proxies like Cloudflare, Nginx, etc.)
+                const ip =
+                    req.headers["x-forwarded-for"]?.split(",")[0]?.trim() ||
+                    req.socket?.remoteAddress ||
+                    "Unknown";
+
+                // ✅ Parse device (clean output)
+                const ua = new UAParser(req.headers["user-agent"]);
+                const browser = ua.getBrowser().name || "Unknown Browser";
+                const os = ua.getOS().name || "Unknown OS";
+                const device = `${browser} on ${os}`;
+
+                // ✅ Get approximate location from IP (free IP-API)
+                let location = "Unknown location";
+                try {
+                    const geoRes = await fetch(`http://ip-api.com/json/${ip}`);
+                    const geo = await geoRes.json();
+
+                    if (geo.status === "success") {
+                        location = `${geo.city}, ${geo.country}`;
+                    }
+                } catch {
+                    // fail silently (don’t break auth flow)
+                }
+
+                // Cache check (1 hour)
                 if (existing && now - existing.updatedAt < 60 * 60 * 1000) {
                     const roles = JSON.parse(existing.roles);
                     profile.roles = roles;
@@ -45,10 +72,14 @@ passport.use(
                     return allowed ? done(null, profile) : done(null, false);
                 }
 
-                // Fetch roles from guild
+                // Fetch roles from Discord
                 const res = await fetch(
                     `https://discord.com/api/users/@me/guilds/${process.env.DISCORD_GUILD_ID}/member`,
-                    { headers: { Authorization: `Bearer ${accessToken}` } }
+                    {
+                        headers: {
+                            Authorization: `Bearer ${accessToken}`
+                        }
+                    }
                 );
 
                 if (!res.ok) return done(null, false);
@@ -70,9 +101,15 @@ passport.use(
                     now
                 );
 
-                // If first login, send email
+                // ✅ Send enhanced email
                 if (isFirstLogin && email) {
-                    sendLoginEmail(email, profile.username).catch(console.error);
+                    sendLoginEmail(
+                        email,
+                        profile.username,
+                        ip,
+                        device,
+                        location
+                    ).catch(console.error);
                 }
 
                 profile.roles = roles;
@@ -84,7 +121,7 @@ passport.use(
                 return allowed ? done(null, profile) : done(null, false);
 
             } catch (err) {
-                console.error(err);
+                console.error("Auth error:", err);
                 return done(err, null);
             }
         }

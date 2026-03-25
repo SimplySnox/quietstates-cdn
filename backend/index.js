@@ -21,11 +21,12 @@ const PORT = process.env.PORT || 5000;
 
 // Allowed CORS origins
 const allowedOrigins = [
-    "https://assets.simplysnox.com",
+    "https://assets.quietstates.xyz",
     "http://localhost:5173"
 ];
 
-app.set("trust proxy", 1);
+// app.set("trust proxy", 1);
+app.set("trust proxy", true);
 app.use(cors({
     origin: allowedOrigins,
     credentials: true,
@@ -52,7 +53,7 @@ app.use(session({
         httpOnly: true,
         secure: true,
         sameSite: "none",
-        domain: ".simplysnox.com"
+        domain: ".quietstates.xyz"
     }
 }));
 
@@ -110,7 +111,7 @@ app.post("/upload", requireAuth, upload.single("file"), async (req, res) => {
 
         fs.unlinkSync(file.path);
 
-        const prefix = "https://cdn.simplysnox.com";
+        const prefix = "https://cdn.quietstates.xyz";
         const url = `${process.env.R2_PUBLIC_URL}/${key}`;
         let newFile = {
             id: uuidv4(),
@@ -276,8 +277,8 @@ app.get("/files", requireAuth, (req, res) => {
 
 /* ---------------- AUTH ---------------- */
 app.get("/auth/discord", passport.authenticate("discord"));
-app.get("/auth/discord/callback", passport.authenticate("discord", { failureRedirect: "/unauthorized" }), (req, res) => res.redirect("https://assets.simplysnox.com"));
-app.get("/logout", (req, res) => { req.logout(() => { }); res.clearCookie("qs.sid"); res.redirect("https://assets.simplysnox.com"); });
+app.get("/auth/discord/callback", passport.authenticate("discord", { failureRedirect: "/unauthorized" }), (req, res) => res.redirect("https://assets.quietstates.xyz"));
+app.get("/logout", (req, res) => { req.logout(() => { }); res.clearCookie("qs.sid"); res.redirect("https://assets.quietstates.xyz"); });
 app.get("/me", (req, res) => res.json(req.user || null));
 
 app.listen(PORT, () => console.log(`🚀 API running on ${PORT}`));
