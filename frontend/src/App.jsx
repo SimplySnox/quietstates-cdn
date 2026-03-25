@@ -82,7 +82,7 @@ export default function App() {
     };
 
     const remove = async (id) => {
-        await fetch(`${API}/files/${id}`, {
+        const res = await fetch(`${API}/files/${id}`, {
             method: "DELETE",
             credentials: "include"
         });
@@ -91,8 +91,8 @@ export default function App() {
         if (data.success) {
             const username = data.deletedBy?.username;
             if (username) {
-                alert(`[dev] file deleted by: ${username}`);
-                console.log(`file deleted by: ${username}`);
+                // alert(`[dev] file deleted by: ${username}`);
+                console.log(`[dev] file deleted by: ${username}`);
             }
             setFiles(files.filter((f) => f.id !== id));
         }
