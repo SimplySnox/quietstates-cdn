@@ -95,7 +95,15 @@ export const dscFileDelete = async (file, user) => {
                 { name: "Category", value: `\`${file.category}\``, inline: true },
                 { name: "Uploader", value: `\`${file.uploader}\``, inline: true },
                 { name: "Size", value: `\`${(file.size / 1024).toFixed(2)} KB\``, inline: true },
-                { name: "Deleted by", value: `<@${user.id}>`, inline: true }
+                {
+                    name: "Deleted by",
+                    value: user?.id
+                        ? `<@${user.id}>`
+                        : user?.username
+                            ? `\`${user.username}\``
+                            : "`Unknown`",
+                    inline: true
+                }
             )
             .setURL(file.url)
             .setTimestamp();
