@@ -10,7 +10,7 @@ import { PutObjectCommand, DeleteObjectCommand, ListObjectsV2Command } from "@aw
 import SQLiteStoreFactory from "better-sqlite3-session-store";
 import sqlite3 from "better-sqlite3";
 
-import { discordNotify } from "./bot/core.js";
+import { client, dscFileUpload, dscFileDelete } from "./bot/core.js";
 import passport from "./helpers/auth.js";
 import db from "./database/db.js";
 import { r2 } from "./database/r2.js";
@@ -231,7 +231,7 @@ app.post("/upload", requireAuth, upload.single("file"), async (req, res) => {
         // }
 
         res.json(newFile);
-        await discordNotify(newFile);
+        await dscFileUpload(newFile);
 
     } catch (err) {
         console.error("UPLOAD ERROR:", err);
@@ -253,7 +253,14 @@ app.delete("/files/:id", requireAuth, async (req, res) => {
         await r2.send(new DeleteObjectCommand({ Bucket: process.env.R2_BUCKET, Key: key }));
         db.prepare("DELETE FROM files WHERE id=?").run(req.params.id);
 
-        res.json({ success: true });
+        res.json({
+            success: true,
+            deletedBy: {
+                id: req.user.id,
+                username: req.user.username
+            }
+        });
+        dscFileDelete(file, req.user || 'Unknown');
 
     } catch (err) {
         console.error("DELETE ERROR:", err);

@@ -16,8 +16,12 @@ import { handleInteraction } from "./handlers/interactionHandler.js";
 
 const EMBED_COLOR = 0x2f3136;
 
-const client = new Client({
-    intents: [GatewayIntentBits.Guilds]
+export const client = new Client({
+    intents: [
+        GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildMessages,
+        GatewayIntentBits.GuildMembers
+    ]
 });
 
 client.once(Events.ClientReady, async () => {
@@ -40,8 +44,8 @@ client.login(process.env.DISCORD_CLIENT_TOKEN);
 
 export default client;
 
-/* ================= EXISTING NOTIFY ================= */
-export const discordNotify = async (file) => {
+/* ================= NOTIFY - UPLOAD ================= */
+export const dscFileUpload = async (file) => {
     try {
         const channel = await client.channels.fetch(process.env.DISCORD_CHANNEL_ID);
 
@@ -74,6 +78,33 @@ export const discordNotify = async (file) => {
         });
 
     } catch (err) {
-        console.error("Discord notify error:", err);
+        console.error("@botCore/dscFileUpload error:", err);
+    }
+};
+
+/* ================= NOTIFY - DELETE ================= */
+export const dscFileDelete = async (file, user) => {
+    try {
+        const channel = await client.channels.fetch(process.env.DISCORD_CHANNEL_ID);
+
+        const embed = new EmbedBuilder()
+            .setColor(EMBED_COLOR)
+            .setTitle("🗑️ File Deleted")
+            .setDescription(`> \`${file.name}\``)
+            .addFields(
+                { name: "Category", value: `\`${file.category}\``, inline: true },
+                { name: "Uploader", value: `\`${file.uploader}\``, inline: true },
+                { name: "Size", value: `\`${(file.size / 1024).toFixed(2)} KB\``, inline: true },
+                { name: "Deleted by", value: `<@${user.id}>`, inline: true }
+            )
+            .setURL(file.url)
+            .setTimestamp();
+
+        await channel.send({
+            embeds: [embed],
+        });
+
+    } catch (err) {
+        console.error("@botCore/dscFileDelete error:", err);
     }
 };

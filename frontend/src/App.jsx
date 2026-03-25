@@ -4,28 +4,28 @@ const API = "https://api.simplysnox.com";
 
 // Expanded categories with groups
 const categories = [
-  "all",              // everything
-  "image",            // photos, illustrations
-  "video",            // full-length videos
-  "audio",            // music, SFX, voiceovers
-  "thumbnails",       // preview images
-  "logos",            // brand logos
-  "branding",         // style guides, color palettes
-  "archive",          // old/unused files
-  "misc",             // catch-all
+    "all",              // everything
+    "image",            // photos, illustrations
+    "video",            // full-length videos
+    "audio",            // music, SFX, voiceovers
+    "thumbnails",       // preview images
+    "logos",            // brand logos
+    "branding",         // style guides, color palettes
+    "archive",          // old/unused files
+    "misc",             // catch-all
 
-  // Expanded Categories
-  "project_files",    // PSD, AI, Figma, Blender, After Effects, Premiere, etc.
-  "documents",        // PDFs, scripts, guides, DOCX, TXT
-  "templates",        // video/audio/design templates, LUTs, effects presets
-  "animations",       // GIFs, motion graphics
-  "fonts",            // font files
-  "reference",        // moodboards, screenshots, concept art
-  "icons",            // small icons for UI or designs
-  "sprites",          // game assets or sprite sheets
-  "vector_art",       // SVG, EPS, Illustrator files
-  "effects_presets",  // audio/video presets, LUTs, filters
-  "stock_assets",     // stock images, videos, or audio for projects
+    // Expanded Categories
+    "project_files",    // PSD, AI, Figma, Blender, After Effects, Premiere, etc.
+    "documents",        // PDFs, scripts, guides, DOCX, TXT
+    "templates",        // video/audio/design templates, LUTs, effects presets
+    "animations",       // GIFs, motion graphics
+    "fonts",            // font files
+    "reference",        // moodboards, screenshots, concept art
+    "icons",            // small icons for UI or designs
+    "sprites",          // game assets or sprite sheets
+    "vector_art",       // SVG, EPS, Illustrator files
+    "effects_presets",  // audio/video presets, LUTs, filters
+    "stock_assets",     // stock images, videos, or audio for projects
 ];
 
 export default function App() {
@@ -86,7 +86,16 @@ export default function App() {
             method: "DELETE",
             credentials: "include"
         });
-        setFiles(files.filter((f) => f.id !== id));
+
+        const data = await res.json();
+        if (data.success) {
+            const username = data.deletedBy?.username;
+            if (username) {
+                alert(`[dev] file deleted by: ${username}`);
+                console.log(`file deleted by: ${username}`);
+            }
+            setFiles(files.filter((f) => f.id !== id));
+        }
     };
 
     const handleDrop = (e) => {
@@ -221,8 +230,8 @@ export default function App() {
                             key={c}
                             onClick={() => setFilter(c)}
                             className={`px-4 py-1 rounded-full text-sm transition ${filter === c
-                                    ? "bg-indigo-600"
-                                    : "bg-zinc-800 hover:bg-zinc-700"
+                                ? "bg-indigo-600"
+                                : "bg-zinc-800 hover:bg-zinc-700"
                                 }`}
                         >
                             {c}
