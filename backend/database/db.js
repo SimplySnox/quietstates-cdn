@@ -25,21 +25,29 @@ CREATE TABLE IF NOT EXISTS files (
 )
 `).run();
 
-/* ---------------- USERS TABLE (FIX) ---------------- */
+/* ---------------- USERS TABLE ---------------- */
 db.prepare(`
 CREATE TABLE IF NOT EXISTS users (
     id TEXT PRIMARY KEY,
     username TEXT,
     roles TEXT,
+    email TEXT,
     updatedAt INTEGER
 )
 `).run();
 
 /* ---------------- MIGRATIONS ---------------- */
-const columns = db.prepare("PRAGMA table_info(files)").all();
 
-if (!columns.some(c => c.name === "uploaderId")) {
+// FILES TABLE COLUMNS
+const filesColumns = db.prepare("PRAGMA table_info(files)").all();
+if (!filesColumns.some(c => c.name === "uploaderId")) {
     db.prepare("ALTER TABLE files ADD COLUMN uploaderId TEXT").run();
+}
+
+// USERS TABLE COLUMNS
+const userColumns = db.prepare("PRAGMA table_info(users)").all();
+if (!userColumns.some(c => c.name === "email")) {
+    db.prepare("ALTER TABLE users ADD COLUMN email TEXT").run();
 }
 
 export default db;
