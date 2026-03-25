@@ -3,7 +3,7 @@ import fs from "fs";
 
 const DB_PATH = "/data/database.sqlite";
 
-// Ensure /data exists
+// Ensure directory exists
 if (!fs.existsSync("/data")) {
     fs.mkdirSync("/data", { recursive: true });
 }
@@ -38,13 +38,13 @@ CREATE TABLE IF NOT EXISTS users (
 
 /* ---------------- MIGRATIONS ---------------- */
 
-// FILES TABLE COLUMNS
+// FILES TABLE
 const filesColumns = db.prepare("PRAGMA table_info(files)").all();
 if (!filesColumns.some(c => c.name === "uploaderId")) {
     db.prepare("ALTER TABLE files ADD COLUMN uploaderId TEXT").run();
 }
 
-// USERS TABLE COLUMNS
+// USERS TABLE
 const userColumns = db.prepare("PRAGMA table_info(users)").all();
 if (!userColumns.some(c => c.name === "email")) {
     db.prepare("ALTER TABLE users ADD COLUMN email TEXT").run();
