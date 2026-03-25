@@ -2,7 +2,7 @@ import passport from "passport";
 import { Strategy as DiscordStrategy } from "passport-discord";
 import db from "../database/db.js";
 import sendLoginEmail from "./mailer.js";
-import UAParser from "ua-parser-js";
+import { UAParser } from "ua-parser-js";
 
 const ALLOWED_USERS = [
     "424342692106076166",
