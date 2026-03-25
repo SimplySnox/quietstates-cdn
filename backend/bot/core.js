@@ -48,7 +48,7 @@ export const discordNotify = async (file) => {
         const embed = new EmbedBuilder()
             .setColor(EMBED_COLOR)
             .setTitle("📁 File Uploaded")
-            .setDescription(`**${file.name}**`)
+            .setDescription(`> \`${file.name}\``)
             .addFields(
                 { name: "Category", value: `\`${file.category}\``, inline: true },
                 { name: "Uploader", value: `\`${file.uploader}\``, inline: true },
