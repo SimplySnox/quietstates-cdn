@@ -21,7 +21,7 @@ passport.use(
             clientID: process.env.DISCORD_CLIENT_ID,
             clientSecret: process.env.DISCORD_CLIENT_SECRET,
             callbackURL: process.env.DISCORD_CALLBACK,
-            scope: ["identify", "guilds", "guilds.members.read"]
+            scope: ["identify", "email", "guilds", "guilds.members.read"]
         },
         async (accessToken, refreshToken, profile, done) => {
             try {
