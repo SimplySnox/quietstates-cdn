@@ -48,7 +48,8 @@ passport.use(
                 try {
                     const geo = await fetch(`http://ip-api.com/json/${ip}`).then(r => r.json());
                     if (geo.status === "success") {
-                        location = `${geo.city}, ${geo.country}`;
+                        //location = `${geo.city}, ${geo.country}`;
+                        location = `${geo.city}, ${geo.region}, ${geo.countryCode}`;
                     }
                 } catch {
                     /* no-op */
